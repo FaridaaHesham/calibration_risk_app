@@ -1,0 +1,97 @@
+// src/components/Sidebar.jsx
+import { NavLink, useNavigate } from 'react-router-dom';
+import './Sidebar.css';
+import logoImg from '../assets/logo.png';
+
+// ── SVG icons (inline, no extra dep) ─────────────────────────────────────
+const CalibrationIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+  </svg>
+);
+
+const RiskIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
+const LogoutIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+);
+
+/**
+ * Persistent left sidebar navigation.
+ * @param {() => void} props.onLogout
+ */
+export default function Sidebar({ onLogout }) {
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_token');
+    onLogout?.();
+    navigate('/', { replace: true });
+  }
+
+  return (
+    <aside className="sidebar" role="navigation" aria-label="Main navigation">
+      {/* Logo */}
+      <div className="sidebar-logo">
+        <img src={logoImg} alt="Adam International Hospital" className="sidebar-logo-img" />
+        <div className="sidebar-logo-text">
+          <span className="sidebar-logo-name">Adam International</span>
+          <span className="sidebar-logo-sub">Hospital</span>
+        </div>
+      </div>
+
+      <div className="sidebar-divider" />
+
+      {/* Nav label */}
+      <p className="sidebar-section-label">NAVIGATION</p>
+
+      {/* Nav items */}
+      <nav className="sidebar-nav">
+        <NavLink
+          to="/app/calibration"
+          id="nav-calibration"
+          className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+        >
+          <CalibrationIcon />
+          <span>Calibration</span>
+        </NavLink>
+
+        <NavLink
+          to="/app/risk"
+          id="nav-risk"
+          className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+        >
+          <RiskIcon />
+          <span>Risk Classification</span>
+        </NavLink>
+      </nav>
+
+      {/* Spacer */}
+      <div className="sidebar-spacer" />
+
+      <div className="sidebar-divider" />
+
+      {/* Logout */}
+      <button
+        id="btn-logout"
+        className="sidebar-logout"
+        onClick={handleLogout}
+        type="button"
+      >
+        <LogoutIcon />
+        <span>Log Out</span>
+      </button>
+    </aside>
+  );
+}

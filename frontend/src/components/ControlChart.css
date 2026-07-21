@@ -1,0 +1,65 @@
+/* ControlChart.css */
+
+.control-chart-wrap {
+  padding: 8px 0 4px;
+}
+
+.control-chart-legend-manual {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 0 16px 12px;
+  font-size: 0.78rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.legend-value { color: var(--chart-value); }
+.legend-mean  { color: var(--chart-mean);  }
+.legend-limit { color: var(--chart-ucl);   }
+.legend-oc    { color: var(--danger);      }
+
+/* Recharts tooltip override */
+.chart-tooltip {
+  background: var(--bg-card);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  box-shadow: var(--shadow-md);
+  min-width: 160px;
+  font-size: 0.83rem;
+}
+
+.chart-tooltip-year {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  font-size: 0.875rem;
+}
+
+.chart-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 3px 0;
+}
+
+.chart-tooltip-row span {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.chart-tooltip-alert {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  color: var(--danger);
+  font-weight: 600;
+  font-size: 0.78rem;
+}

@@ -1,0 +1,104 @@
+/* RiskPage.css */
+
+.risk-page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 1000px;
+}
+
+/* ── Placeholder banner ────────────────────────────────────── */
+.risk-placeholder-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--info-light);
+  border: 1px solid rgba(46, 134, 193, 0.25);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.risk-placeholder-banner strong {
+  color: var(--info);
+}
+
+/* ── Section header ────────────────────────────────────────── */
+.risk-section-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.risk-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 2px;
+}
+
+.risk-section-desc {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Search form (mirrors CalibrationPage) ─────────────────── */
+.risk-search-form {
+  padding: 20px 22px 14px;
+}
+
+.risk-search-fields {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.risk-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+}
+
+.risk-field--grow {
+  flex: 1;
+}
+
+.risk-field--btn {
+  flex-shrink: 0;
+}
+
+.risk-tip {
+  margin-top: 12px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.risk-tip code {
+  background: var(--bg-page);
+  border: 1px solid var(--border-dark);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  color: var(--primary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.risk-tip code:hover {
+  background: var(--info-light);
+  border-color: var(--primary-light);
+}
+
+/* Not found */
+.risk-not-found {
+  padding: 40px 24px;
+}

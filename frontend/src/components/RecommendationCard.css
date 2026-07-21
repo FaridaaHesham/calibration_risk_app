@@ -1,0 +1,101 @@
+/* RecommendationCard.css */
+
+.rec-card {
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+/* ── Colour variants ───────────────────────────────────────── */
+.rec-card--stable   { border-left: 4px solid var(--success); }
+.rec-card--marginal { border-left: 4px solid var(--warning); }
+.rec-card--unstable { border-left: 4px solid var(--danger);  }
+
+/* ── Header ────────────────────────────────────────────────── */
+.rec-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.rec-card-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--info-light);
+  color: var(--info);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rec-card--stable   .rec-card-icon-wrap { background: var(--success-light); color: var(--success); }
+.rec-card--marginal .rec-card-icon-wrap { background: var(--warning-light); color: var(--warning); }
+.rec-card--unstable .rec-card-icon-wrap { background: var(--danger-light);  color: var(--danger);  }
+
+.rec-card-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.rec-card-subtitle {
+  font-size: 0.775rem;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
+.rec-card-badge {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.8rem;
+}
+
+/* ── Body ──────────────────────────────────────────────────── */
+.rec-card-body {
+  padding: 18px 22px;
+}
+
+.rec-card-date {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  margin-bottom: 3px;
+}
+
+.rec-card-interval {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rec-card-interval::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  background: var(--border-dark);
+  border-radius: 2px;
+}
+
+.rec-card-message {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding: 10px 14px;
+  background: var(--bg-page);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--border-dark);
+}
+
+.rec-card--stable   .rec-card-message { border-left-color: var(--success); }
+.rec-card--marginal .rec-card-message { border-left-color: var(--warning); }
+.rec-card--unstable .rec-card-message { border-left-color: var(--danger);  }

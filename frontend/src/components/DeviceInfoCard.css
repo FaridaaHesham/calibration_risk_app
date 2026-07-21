@@ -1,0 +1,90 @@
+/* DeviceInfoCard.css */
+
+.device-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.device-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-page);
+}
+
+.device-card-header h2 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.device-card-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 1px 0 0;
+}
+
+.device-card-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0;
+}
+
+.device-info-row {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.device-info-row:last-child,
+.device-info-row:nth-last-child(-n+2):nth-child(odd) {
+  border-bottom: none;
+}
+
+.device-info-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+
+.device-info-value {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* ── Skeleton loading ──────────────────────────────────────── */
+.device-card-skeleton {
+  padding: 8px 0;
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #E2E8F0 25%, #EDF2F7 50%, #E2E8F0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.skeleton-label  { width: 100px; height: 11px; }
+.skeleton-value  { width: 180px; height: 15px; }
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

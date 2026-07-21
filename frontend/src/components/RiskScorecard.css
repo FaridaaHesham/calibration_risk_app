@@ -1,0 +1,135 @@
+/* RiskScorecard.css */
+
+.risk-scorecard {
+  overflow: hidden;
+}
+
+/* ── Colour variants ───────────────────────────────────────── */
+.risk--low    { border-left: 4px solid var(--success); }
+.risk--medium { border-left: 4px solid var(--warning); }
+.risk--high   { border-left: 4px solid var(--danger);  }
+
+/* ── Header ────────────────────────────────────────────────── */
+.risk-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.risk-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--info-light);
+  color: var(--info);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.risk--low    .risk-icon-wrap { background: var(--success-light); color: var(--success); }
+.risk--medium .risk-icon-wrap { background: var(--warning-light); color: var(--warning); }
+.risk--high   .risk-icon-wrap { background: var(--danger-light);  color: var(--danger);  }
+
+.risk-header-text h2 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.risk-subtitle {
+  font-size: 0.775rem;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
+.risk-level-badge {
+  margin-left: auto;
+  font-size: 0.83rem;
+  flex-shrink: 0;
+}
+
+/* ── Overall score ─────────────────────────────────────────── */
+.risk-overall {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.risk-overall-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.risk-overall-num {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.score-bar-wrap {
+  height: 8px;
+  background: var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.score-bar-fill {
+  height: 100%;
+  border-radius: 8px;
+  transition: width 0.5s ease;
+}
+
+.risk-overall-pct {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: right;
+  margin-top: 4px;
+}
+
+/* ── Factors ───────────────────────────────────────────────── */
+.risk-factors {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.risk-factors-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.risk-table .score-bar-wrap {
+  height: 6px;
+  min-width: 80px;
+}
+
+.factor-name {
+  font-weight: 500;
+  color: var(--text-primary) !important;
+}
+
+/* ── Recommendation ────────────────────────────────────────── */
+.risk-recommendation {
+  padding: 14px 22px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  background: var(--bg-page);
+}
+
+.risk-recommendation strong {
+  color: var(--text-primary);
+}
+
+.risk-card-loading {
+  min-height: 120px;
+}

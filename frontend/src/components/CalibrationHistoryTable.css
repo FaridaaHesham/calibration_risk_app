@@ -1,0 +1,28 @@
+/* CalibrationHistoryTable.css */
+
+.cal-history-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+}
+
+.cal-history-table {
+  min-width: 700px;
+}
+
+.col-year {
+  font-weight: 600;
+  color: var(--text-primary) !important;
+  white-space: nowrap;
+}
+
+.col-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* Deviation colouring */
+.dev-zero   { color: var(--text-muted) !important; }
+.dev-low    { color: var(--success) !important; font-weight: 500; }
+.dev-medium { color: var(--warning) !important; font-weight: 500; }
+.dev-high   { color: var(--danger)  !important; font-weight: 600; }
