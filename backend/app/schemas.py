@@ -33,6 +33,15 @@ class DeviceSchema(BaseModel):
     manufacturer: str
 
 
+class PredictedDeviceSchema(DeviceSchema):
+    stability: str
+    label: str
+    interval_years: int
+    next_date: str
+    message: str
+
+
+
 # ---------------------------------------------------------------------------
 # Calibrations
 # ---------------------------------------------------------------------------

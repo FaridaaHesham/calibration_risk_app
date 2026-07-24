@@ -86,3 +86,52 @@ export async function getRiskData(serialNumber) {
     throw err;
   }
 }
+
+// ─── Calibration Predictions Search ────────────────────────────────────────
+
+/**
+ * Fetch devices filtered by predicted calibration interval (e.g., 2 years) and/or stability.
+ * @param {number|string|null} intervalYears - e.g., 2, 1, or null for all
+ * @param {string|null} stability - 'stable' | 'marginal' | 'unstable' | null
+ * @returns {Array} array of predicted device objects
+ */
+export async function getDevicesByPrediction(intervalYears = null, stability = null) {
+  try {
+    const params = {};
+    if (intervalYears !== null && intervalYears !== undefined && intervalYears !== '') {
+      params.interval_years = intervalYears;
+    }
+    if (stability) {
+      params.stability = stability;
+    }
+    const res = await apiClient.get('/api/devices/predictions', { params });
+    return res.data;
+  } catch (err) {
+    console.warn('API call to /api/devices/predictions failed, falling back to mock filtering:', err);
+    // Mock fallback logic
+    await delay(300);
+    const results = [];
+    const targetInterval = intervalYears ? Number(intervalYears) : null;
+    for (const [sn, device] of Object.entries(MOCK_DEVICES)) {
+      const chart = MOCK_CHART_DATA[sn];
+      if (!chart) continue;
+      const rec = chart.recommendation;
+      const recInterval = rec.intervalYears || rec.interval_years;
+      if (targetInterval !== null && recInterval !== targetInterval) continue;
+      if (stability && rec.stability.toLowerCase() !== stability.toLowerCase()) continue;
+      results.push({
+        serial_number: device.serialNumber || device.serial_number,
+        department: device.department,
+        device_type: device.deviceType || device.device_type,
+        model: device.model,
+        manufacturer: device.manufacturer,
+        stability: rec.stability,
+        label: rec.label,
+        interval_years: recInterval,
+        next_date: rec.nextDate || rec.next_date,
+        message: rec.message,
+      });
+    }
+    return results;
+  }
+}

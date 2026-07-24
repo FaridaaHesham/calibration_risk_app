@@ -338,3 +338,34 @@ MOCK_RISK_DATA = {
         "recommendation": "Monitor closely. Schedule preventive maintenance before next calibration.",
     },
 }
+
+
+def get_predicted_devices(interval_years: int | None = None, stability: str | None = None):
+    """
+    Returns a list of devices enriched with their predicted calibration recommendations.
+    Can be filtered by interval_years (e.g. 1 or 2) and/or stability status.
+    """
+    results = []
+    for sn, device in MOCK_DEVICES.items():
+        chart = MOCK_CHART_DATA.get(sn)
+        if not chart:
+            continue
+        rec = chart["recommendation"]
+        
+        if interval_years is not None and rec["interval_years"] != interval_years:
+            continue
+        if stability is not None and rec["stability"].lower() != stability.lower():
+            continue
+
+        item = {
+            **device,
+            "stability": rec["stability"],
+            "label": rec["label"],
+            "interval_years": rec["interval_years"],
+            "next_date": rec["next_date"],
+            "message": rec["message"],
+        }
+        results.append(item)
+
+    return results
+

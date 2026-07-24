@@ -1,7 +1,6 @@
-// src/pages/CalibrationPage.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DEPARTMENTS } from '../data/mockData';
-import { getDevice, getCalibrationHistory, getChartData } from '../api/devices';
+import { getDevice, getCalibrationHistory, getChartData, getDevicesByPrediction } from '../api/devices';
 import DeviceInfoCard from '../components/DeviceInfoCard';
 import ControlChart from '../components/ControlChart';
 import RecommendationCard from '../components/RecommendationCard';
@@ -23,10 +22,33 @@ export default function CalibrationPage() {
   const [chartData, setChartData]    = useState(null);
   const [history, setHistory]        = useState([]);
 
-  async function handleSearch(e) {
-    e.preventDefault();
-    if (!serialInput.trim()) return;
+  // Prediction filter state
+  const [selectedInterval, setSelectedInterval] = useState(null);
+  const [predStability, setPredStability]       = useState(null);
+  const [predDevices, setPredDevices]           = useState([]);
+  const [predLoading, setPredLoading]           = useState(false);
+  const [showPredictions, setShowPredictions]   = useState(false);
 
+  useEffect(() => {
+    if (showPredictions) {
+      handleFetchPredictions(selectedInterval, predStability);
+    }
+  }, [selectedInterval, predStability, showPredictions]);
+
+  async function handleFetchPredictions(interval, stability) {
+    setPredLoading(true);
+    try {
+      const results = await getDevicesByPrediction(interval, stability);
+      setPredDevices(results);
+    } catch (err) {
+      console.error('Failed to fetch predictions:', err);
+    } finally {
+      setPredLoading(false);
+    }
+  }
+
+  async function executeSearch(serial) {
+    if (!serial.trim()) return;
     setLoading(true);
     setNotFound(false);
     setDevice(null);
@@ -34,11 +56,10 @@ export default function CalibrationPage() {
     setHistory([]);
 
     try {
-      // Parallel fetches — all three calls run simultaneously
       const [dev, chart, hist] = await Promise.all([
-        getDevice(serialInput.trim()),
-        getChartData(serialInput.trim()),
-        getCalibrationHistory(serialInput.trim()),
+        getDevice(serial.trim()),
+        getChartData(serial.trim()),
+        getCalibrationHistory(serial.trim()),
       ]);
 
       if (!dev) {
@@ -56,6 +77,16 @@ export default function CalibrationPage() {
     }
   }
 
+  async function handleSearch(e) {
+    e.preventDefault();
+    await executeSearch(serialInput);
+  }
+
+  function handleSelectPredDevice(sn) {
+    setSerialInput(sn);
+    executeSearch(sn);
+  }
+
   const hasResults = Boolean(device);
 
   return (
@@ -67,68 +98,182 @@ export default function CalibrationPage() {
         <div className="cal-section-header">
           <StepBadge n={1} />
           <div>
-            <h2 className="cal-section-title">Select Device</h2>
-            <p className="cal-section-desc">Choose a department and enter the device serial number to load its calibration data.</p>
+            <h2 className="cal-section-title">Select Device or Search by Calibration Prediction</h2>
+            <p className="cal-section-desc">Search by serial number or filter devices by predicted calibration schedule (e.g., predicted after 2 years).</p>
           </div>
         </div>
 
-        <form id="device-search-form" onSubmit={handleSearch} className="cal-search-form card">
-          <div className="cal-search-fields">
-            {/* Department */}
-            <div className="cal-field">
-              <label htmlFor="select-department" className="form-label">Department</label>
-              <select
-                id="select-department"
-                className="form-select"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-              >
-                <option value="">All departments</option>
-                {DEPARTMENTS.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
+        {/* Prediction Search Toggle Bar */}
+        <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button
+            type="button"
+            className={`btn ${!showPredictions ? 'btn-primary' : 'btn-outline'}`}
+            onClick={() => setShowPredictions(false)}
+            style={{ fontSize: '0.8125rem' }}
+          >
+            Direct Serial Lookup
+          </button>
+          <button
+            type="button"
+            className={`btn ${showPredictions ? 'btn-primary' : 'btn-outline'}`}
+            onClick={() => setShowPredictions(true)}
+            style={{ fontSize: '0.8125rem' }}
+          >
+            🎯 Search by Calibration Prediction
+          </button>
+        </div>
 
-            {/* Serial number */}
-            <div className="cal-field cal-field--grow">
-              <label htmlFor="input-serial" className="form-label">Serial Number</label>
-              <input
-                id="input-serial"
-                type="text"
-                className="form-input"
-                value={serialInput}
-                onChange={(e) => setSerialInput(e.target.value)}
-                placeholder="e.g. SN-AND-001, SN-IVF-012, SN-BLD-007…"
-                autoComplete="off"
-                spellCheck={false}
-              />
-            </div>
+        {showPredictions ? (
+          <div className="card pred-search-card">
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: '0 0 6px' }}>Filter Devices by Predicted Calibration Interval</h3>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: 0 }}>
+              Select a predicted interval to list all medical devices estimated for calibration within that timeframe.
+            </p>
 
-            {/* Search button */}
-            <div className="cal-field cal-field--btn">
-              <label className="form-label" aria-hidden="true">&nbsp;</label>
+            <div className="pred-filter-bar">
+              <span className="pred-filter-label">Filter by Prediction:</span>
               <button
-                id="btn-search-device"
-                type="submit"
-                className="btn btn-primary"
-                disabled={loading || !serialInput.trim()}
+                type="button"
+                className={`pred-filter-btn ${selectedInterval === null && predStability === null ? 'active' : ''}`}
+                onClick={() => { setSelectedInterval(null); setPredStability(null); }}
               >
-                {loading ? <><div className="spinner" style={{ width: 15, height: 15, borderWidth: 2 }} />Searching…</> : <><SearchIcon />Search</>}
+                All Devices
+              </button>
+              <button
+                type="button"
+                className={`pred-filter-btn ${selectedInterval === 2 ? 'active' : ''}`}
+                onClick={() => { setSelectedInterval(2); setPredStability(null); }}
+              >
+                📅 Predict: 2 Years Interval (Stable)
+              </button>
+              <button
+                type="button"
+                className={`pred-filter-btn ${selectedInterval === 1 && predStability !== 'unstable' ? 'active' : ''}`}
+                onClick={() => { setSelectedInterval(1); setPredStability(null); }}
+              >
+                🗓️ Predict: 1 Year Interval (Marginal)
+              </button>
+              <button
+                type="button"
+                className={`pred-filter-btn ${predStability === 'unstable' ? 'active' : ''}`}
+                onClick={() => { setSelectedInterval(null); setPredStability('unstable'); }}
+              >
+                ⚠️ Predict: Unstable (Immediate)
               </button>
             </div>
-          </div>
 
-          {/* Demo tip */}
-          <p className="cal-tip">
-            Try: <code onClick={() => setSerialInput('SN-AND-001')}>SN-AND-001</code>
-            <code onClick={() => setSerialInput('SN-IVF-012')}>SN-IVF-012</code>
-            <code onClick={() => setSerialInput('SN-BLD-007')}>SN-BLD-007</code>
-            <code onClick={() => setSerialInput('SN-PATH-003')}>SN-PATH-003</code>
-            <code onClick={() => setSerialInput('SN-OR-015')}>SN-OR-015</code>
-          </p>
-        </form>
+            {predLoading ? (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
+                Loading predicted devices...
+              </div>
+            ) : predDevices.length === 0 ? (
+              <div style={{ padding: '16px 0', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
+                No devices match the selected prediction filter.
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto', marginTop: 10 }}>
+                <table className="pred-results-table">
+                  <thead>
+                    <tr>
+                      <th>Serial Number</th>
+                      <th>Department</th>
+                      <th>Device & Model</th>
+                      <th>Stability Prediction</th>
+                      <th>Predicted Interval</th>
+                      <th>Next Calibration Due</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {predDevices.map((dev) => (
+                      <tr key={dev.serial_number}>
+                        <td style={{ fontWeight: 600, color: 'var(--primary-light)' }}>{dev.serial_number}</td>
+                        <td>{dev.department}</td>
+                        <td>{dev.device_type} ({dev.model})</td>
+                        <td>
+                          <span className={`badge-stability ${dev.stability}`}>
+                            {dev.label || dev.stability}
+                          </span>
+                        </td>
+                        <td><strong>{dev.interval_years} {dev.interval_years === 1 ? 'Year' : 'Years'}</strong></td>
+                        <td>{dev.next_date}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                            onClick={() => handleSelectPredDevice(dev.serial_number)}
+                          >
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : (
+          <form id="device-search-form" onSubmit={handleSearch} className="cal-search-form card">
+            <div className="cal-search-fields">
+              {/* Department */}
+              <div className="cal-field">
+                <label htmlFor="select-department" className="form-label">Department</label>
+                <select
+                  id="select-department"
+                  className="form-select"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                >
+                  <option value="">All departments</option>
+                  {DEPARTMENTS.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Serial number */}
+              <div className="cal-field cal-field--grow">
+                <label htmlFor="input-serial" className="form-label">Serial Number</label>
+                <input
+                  id="input-serial"
+                  type="text"
+                  className="form-input"
+                  value={serialInput}
+                  onChange={(e) => setSerialInput(e.target.value)}
+                  placeholder="e.g. SN-AND-001, SN-IVF-012, SN-BLD-007…"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </div>
+
+              {/* Search button */}
+              <div className="cal-field cal-field--btn">
+                <label className="form-label" aria-hidden="true">&nbsp;</label>
+                <button
+                  id="btn-search-device"
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={loading || !serialInput.trim()}
+                >
+                  {loading ? <><div className="spinner" style={{ width: 15, height: 15, borderWidth: 2 }} />Searching…</> : <><SearchIcon />Search</>}
+                </button>
+              </div>
+            </div>
+
+            {/* Demo tip */}
+            <p className="cal-tip">
+              Try: <code onClick={() => { setSerialInput('SN-AND-001'); executeSearch('SN-AND-001'); }}>SN-AND-001</code>
+              <code onClick={() => { setSerialInput('SN-IVF-012'); executeSearch('SN-IVF-012'); }}>SN-IVF-012</code>
+              <code onClick={() => { setSerialInput('SN-BLD-007'); executeSearch('SN-BLD-007'); }}>SN-BLD-007</code>
+              <code onClick={() => { setSerialInput('SN-PATH-003'); executeSearch('SN-PATH-003'); }}>SN-PATH-003</code>
+              <code onClick={() => { setSerialInput('SN-OR-015'); executeSearch('SN-OR-015'); }}>SN-OR-015</code>
+            </p>
+          </form>
+        )}
       </section>
+
 
       {/* ─────────────────────────────────────────────────────────────
           Loading state
