@@ -8,9 +8,9 @@
 import './RiskScorecard.css';
 
 const RISK_CONFIG = {
-  Low:    { cardClass: 'risk--low',    badge: 'badge-success', icon: '▼', barColor: 'var(--success)' },
-  Medium: { cardClass: 'risk--medium', badge: 'badge-warning', icon: '▶', barColor: 'var(--warning)' },
-  High:   { cardClass: 'risk--high',   badge: 'badge-danger',  icon: '▲', barColor: 'var(--danger)'  },
+  Low:    { cardClass: 'risk--low',    badge: 'badge-success', barColor: 'var(--success)' },
+  Medium: { cardClass: 'risk--medium', badge: 'badge-warning', barColor: 'var(--warning)' },
+  High:   { cardClass: 'risk--high',   badge: 'badge-danger',  barColor: 'var(--danger)'  },
 };
 
 const FACTOR_COLORS = {
@@ -66,7 +66,7 @@ export default function RiskScorecard({ data, loading }) {
           </p>
         </div>
         <span className={`badge ${config.badge} risk-level-badge`}>
-          {config.icon} {data.riskLevel} Risk
+          {data.riskLevel} Risk
         </span>
       </div>
 

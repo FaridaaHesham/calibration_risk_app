@@ -3,10 +3,19 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import './Sidebar.css';
 import logoImg from '../assets/logo.png';
 
-// ── SVG icons (inline, no extra dep) ─────────────────────────────────────
+// ── SVG icons ────────────────────────────────────────────────
 const CalibrationIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+  </svg>
+);
+
+const AddCalibrationIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="12" y1="18" x2="12" y2="12"/>
+    <line x1="9" y1="15" x2="15" y2="15"/>
   </svg>
 );
 
@@ -28,7 +37,6 @@ const LogoutIcon = () => (
 
 /**
  * Persistent left sidebar navigation.
- * @param {() => void} props.onLogout
  */
 export default function Sidebar({ onLogout }) {
   const navigate = useNavigate();
@@ -53,10 +61,8 @@ export default function Sidebar({ onLogout }) {
 
       <div className="sidebar-divider" />
 
-      {/* Nav label */}
       <p className="sidebar-section-label">NAVIGATION</p>
 
-      {/* Nav items */}
       <nav className="sidebar-nav">
         <NavLink
           to="/app/calibration"
@@ -77,12 +83,10 @@ export default function Sidebar({ onLogout }) {
         </NavLink>
       </nav>
 
-      {/* Spacer */}
       <div className="sidebar-spacer" />
 
       <div className="sidebar-divider" />
 
-      {/* Logout */}
       <button
         id="btn-logout"
         className="sidebar-logout"

@@ -12,19 +12,16 @@ const STABILITY_CONFIG = {
   stable: {
     badge: 'badge-success',
     label: 'Stable',
-    icon: '✓',
     cardClass: 'rec-card--stable',
   },
   marginal: {
     badge: 'badge-warning',
     label: 'Marginal',
-    icon: '⚠',
     cardClass: 'rec-card--marginal',
   },
   unstable: {
     badge: 'badge-danger',
     label: 'Unstable',
-    icon: '✕',
     cardClass: 'rec-card--unstable',
   },
 };
@@ -71,7 +68,7 @@ export default function RecommendationCard({ recommendation }) {
           <p className="rec-card-subtitle">Recommended date based on stability analysis</p>
         </div>
         <span className={`badge ${config.badge} rec-card-badge`}>
-          {config.icon} {config.label}
+          {config.label}
         </span>
       </div>
 

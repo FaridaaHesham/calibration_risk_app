@@ -60,7 +60,8 @@ export const MOCK_DEVICES = {
   },
 };
 
-// Control chart data: { points[], recommendation{} }
+// ─── Control chart data (one primary measurement per year per device) ────────
+// TODO: Replace with real statistical output from backend.
 export const MOCK_CHART_DATA = {
   'SN-AND-001': {
     points: [
@@ -80,10 +81,9 @@ export const MOCK_CHART_DATA = {
       { year: '2024', value: 37.5, mean: 37.5, ucl: 39.9, lcl: 35.1 },
     ],
     // TODO: Replace this hardcoded recommendation with the real
-    //       statistical stability calculation (control chart rules,
-    //       run rules, CUSUM, etc.) from the backend.
+    //       statistical stability calculation from the backend.
     recommendation: {
-      stability: 'stable',        // 'stable' | 'marginal' | 'unstable'
+      stability: 'stable',
       label: 'Stable',
       nextDate: '2026-08-01',
       intervalYears: 2,
@@ -187,81 +187,218 @@ export const MOCK_CHART_DATA = {
   },
 };
 
+// ─── Calibration history — year-grouped, multiple tests per session ──────────
+// Each entry represents one calibration SESSION (typically annual).
+// Each session contains one or more TEST records, matching the real DB structure.
+// TODO: Replace with real DB records from the calibration_records table.
 export const MOCK_CALIBRATION_HISTORY = {
   'SN-AND-001': [
-    { year: '2011', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 37.2, deviation: -0.3, tolerance: '±1.0', result: 'Pass' },
-    { year: '2012', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 37.8, deviation:  0.3, tolerance: '±1.0', result: 'Pass' },
-    { year: '2013', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 36.9, deviation: -0.6, tolerance: '±1.0', result: 'Pass' },
-    { year: '2014', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 38.1, deviation:  0.6, tolerance: '±1.0', result: 'Pass' },
-    { year: '2015', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 37.4, deviation: -0.1, tolerance: '±1.0', result: 'Pass' },
-    { year: '2016', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 37.7, deviation:  0.2, tolerance: '±1.0', result: 'Pass' },
-    { year: '2017', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 38.5, deviation:  1.0, tolerance: '±1.0', result: 'Pass' },
-    { year: '2018', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 36.8, deviation: -0.7, tolerance: '±1.0', result: 'Pass' },
-    { year: '2019', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 37.3, deviation: -0.2, tolerance: '±1.0', result: 'Pass' },
-    { year: '2020', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 37.6, deviation:  0.1, tolerance: '±1.0', result: 'Pass' },
-    { year: '2021', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 38.0, deviation:  0.5, tolerance: '±1.0', result: 'Pass' },
-    { year: '2022', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 37.1, deviation: -0.4, tolerance: '±1.0', result: 'Pass' },
-    { year: '2023', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 37.9, deviation:  0.4, tolerance: '±1.0', result: 'Pass' },
-    { year: '2024', testLabel: 'Motility Analysis',   referenceValue: 37.5, actualValue: 37.5, deviation:  0.0, tolerance: '±1.0', result: 'Pass' },
+    {
+      year: '2024', calibrationDate: '2024-08-15',
+      technician: 'Ahmed Khalil', equipment: 'NIST Ref. Standard Set A-2024', certificateNo: 'CAL-2024-AND-001', notes: '',
+      tests: [
+        { testLabel: 'Motility Analysis',     unit: '%',    referenceValue: 37.5, actualValue: 37.5, deviation:  0.0, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Concentration Count',   unit: 'M/mL', referenceValue: 20.0, actualValue: 20.2, deviation:  0.2, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Progressive Motility',  unit: '%',    referenceValue: 32.0, actualValue: 31.8, deviation: -0.2, tolerance: '±0.8', result: 'Pass' },
+      ],
+    },
+    {
+      year: '2023', calibrationDate: '2023-07-22',
+      technician: 'Ahmed Khalil', equipment: 'NIST Ref. Standard Set A-2023', certificateNo: 'CAL-2023-AND-001', notes: '',
+      tests: [
+        { testLabel: 'Motility Analysis',     unit: '%',    referenceValue: 37.5, actualValue: 37.9, deviation:  0.4, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Concentration Count',   unit: 'M/mL', referenceValue: 20.0, actualValue: 20.5, deviation:  0.5, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Progressive Motility',  unit: '%',    referenceValue: 32.0, actualValue: 31.5, deviation: -0.5, tolerance: '±0.8', result: 'Pass' },
+        { testLabel: 'Morphology Assessment', unit: '%',    referenceValue: 4.0,  actualValue: 3.9,  deviation: -0.1, tolerance: '±0.5', result: 'Pass' },
+      ],
+    },
+    {
+      year: '2022', calibrationDate: '2022-09-10',
+      technician: 'Sara Nour', equipment: 'NIST Ref. Standard Set B-2022', certificateNo: 'CAL-2022-AND-001', notes: '',
+      tests: [
+        { testLabel: 'Motility Analysis',     unit: '%',    referenceValue: 37.5, actualValue: 37.1, deviation: -0.4, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Concentration Count',   unit: 'M/mL', referenceValue: 20.0, actualValue: 19.7, deviation: -0.3, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Progressive Motility',  unit: '%',    referenceValue: 32.0, actualValue: 32.3, deviation:  0.3, tolerance: '±0.8', result: 'Pass' },
+      ],
+    },
+    {
+      year: '2021', calibrationDate: '2021-08-05',
+      technician: 'Sara Nour', equipment: 'NIST Ref. Standard Set B-2021', certificateNo: 'CAL-2021-AND-001', notes: '',
+      tests: [
+        { testLabel: 'Motility Analysis',    unit: '%',    referenceValue: 37.5, actualValue: 38.0, deviation:  0.5, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Concentration Count',  unit: 'M/mL', referenceValue: 20.0, actualValue: 20.1, deviation:  0.1, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Progressive Motility', unit: '%',    referenceValue: 32.0, actualValue: 31.9, deviation: -0.1, tolerance: '±0.8', result: 'Pass' },
+      ],
+    },
+    {
+      year: '2020', calibrationDate: '2020-06-18',
+      technician: 'Ahmed Khalil', equipment: 'NIST Ref. Standard Set A-2020', certificateNo: 'CAL-2020-AND-001', notes: 'Post-COVID restart calibration.',
+      tests: [
+        { testLabel: 'Motility Analysis',    unit: '%',    referenceValue: 37.5, actualValue: 37.6, deviation:  0.1, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Concentration Count',  unit: 'M/mL', referenceValue: 20.0, actualValue: 20.0, deviation:  0.0, tolerance: '±1.0', result: 'Pass' },
+      ],
+    },
+    {
+      year: '2019', calibrationDate: '2019-08-12',
+      technician: 'Ahmed Khalil', equipment: 'NIST Ref. Standard Set A-2019', certificateNo: 'CAL-2019-AND-001', notes: '',
+      tests: [
+        { testLabel: 'Motility Analysis',     unit: '%',    referenceValue: 37.5, actualValue: 37.3, deviation: -0.2, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Concentration Count',   unit: 'M/mL', referenceValue: 20.0, actualValue: 19.8, deviation: -0.2, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Progressive Motility',  unit: '%',    referenceValue: 32.0, actualValue: 32.1, deviation:  0.1, tolerance: '±0.8', result: 'Pass' },
+      ],
+    },
+    {
+      year: '2018', calibrationDate: '2018-07-30',
+      technician: 'Sara Nour', equipment: 'NIST Ref. Standard Set B-2018', certificateNo: 'CAL-2018-AND-001', notes: '',
+      tests: [
+        { testLabel: 'Motility Analysis',     unit: '%',    referenceValue: 37.5, actualValue: 36.8, deviation: -0.7, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Concentration Count',   unit: 'M/mL', referenceValue: 20.0, actualValue: 20.4, deviation:  0.4, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Progressive Motility',  unit: '%',    referenceValue: 32.0, actualValue: 31.4, deviation: -0.6, tolerance: '±0.8', result: 'Pass' },
+      ],
+    },
+    {
+      year: '2017', calibrationDate: '2017-09-05',
+      technician: 'Ahmed Khalil', equipment: 'NIST Ref. Standard Set A-2017', certificateNo: 'CAL-2017-AND-001', notes: '',
+      tests: [
+        { testLabel: 'Motility Analysis',    unit: '%',    referenceValue: 37.5, actualValue: 38.5, deviation:  1.0, tolerance: '±1.0', result: 'Pass' },
+        { testLabel: 'Concentration Count',  unit: 'M/mL', referenceValue: 20.0, actualValue: 20.6, deviation:  0.6, tolerance: '±1.0', result: 'Pass' },
+      ],
+    },
   ],
+
   'SN-BLD-007': [
-    { year: '2012', testLabel: 'WBC Count Verification', referenceValue: 5.0, actualValue: 5.1, deviation:  0.1, tolerance: '±0.5', result: 'Pass' },
-    { year: '2013', testLabel: 'WBC Count Verification', referenceValue: 5.0, actualValue: 4.8, deviation: -0.2, tolerance: '±0.5', result: 'Pass' },
-    { year: '2014', testLabel: 'WBC Count Verification', referenceValue: 5.0, actualValue: 5.3, deviation:  0.3, tolerance: '±0.5', result: 'Pass' },
-    { year: '2015', testLabel: 'WBC Count Verification', referenceValue: 5.0, actualValue: 4.6, deviation: -0.4, tolerance: '±0.5', result: 'Pass' },
-    { year: '2016', testLabel: 'WBC Count Verification', referenceValue: 5.0, actualValue: 5.7, deviation:  0.7, tolerance: '±0.5', result: 'Fail' },
-    { year: '2017', testLabel: 'WBC Count Verification', referenceValue: 5.0, actualValue: 5.9, deviation:  0.9, tolerance: '±0.5', result: 'Fail' },
-    { year: '2018', testLabel: 'WBC Count Verification', referenceValue: 5.0, actualValue: 5.2, deviation:  0.2, tolerance: '±0.5', result: 'Pass' },
-    { year: '2019', testLabel: 'WBC Count Verification', referenceValue: 5.0, actualValue: 4.9, deviation: -0.1, tolerance: '±0.5', result: 'Pass' },
-    { year: '2020', testLabel: 'WBC Count Verification', referenceValue: 5.0, actualValue: 5.4, deviation:  0.4, tolerance: '±0.5', result: 'Pass' },
-    { year: '2021', testLabel: 'WBC Count Verification', referenceValue: 5.0, actualValue: 5.6, deviation:  0.6, tolerance: '±0.5', result: 'Fail' },
-    { year: '2022', testLabel: 'WBC Count Verification', referenceValue: 5.0, actualValue: 4.7, deviation: -0.3, tolerance: '±0.5', result: 'Pass' },
-    { year: '2023', testLabel: 'WBC Count Verification', referenceValue: 5.0, actualValue: 5.8, deviation:  0.8, tolerance: '±0.5', result: 'Fail' },
-    { year: '2024', testLabel: 'WBC Count Verification', referenceValue: 5.0, actualValue: 5.5, deviation:  0.5, tolerance: '±0.5', result: 'Pass' },
+    {
+      year: '2024', calibrationDate: '2024-07-14',
+      technician: 'Mariam Saad', equipment: 'Sysmex CAL-REF-2024', certificateNo: 'CAL-2024-BLD-007', notes: '',
+      tests: [
+        { testLabel: 'WBC Count Verification', unit: '10^9/L', referenceValue: 5.0,  actualValue: 5.5,  deviation:  0.5, tolerance: '±0.5', result: 'Pass' },
+        { testLabel: 'RBC Count Verification', unit: '10^12/L',referenceValue: 4.5,  actualValue: 4.6,  deviation:  0.1, tolerance: '±0.2', result: 'Pass' },
+        { testLabel: 'Hemoglobin Level',       unit: 'g/dL',   referenceValue: 13.5, actualValue: 13.4, deviation: -0.1, tolerance: '±0.3', result: 'Pass' },
+        { testLabel: 'Platelet Count',         unit: '10^9/L', referenceValue: 250,  actualValue: 248,  deviation:  -2,  tolerance: '±15',  result: 'Pass' },
+      ],
+    },
+    {
+      year: '2023', calibrationDate: '2023-06-28',
+      technician: 'Mariam Saad', equipment: 'Sysmex CAL-REF-2023', certificateNo: 'CAL-2023-BLD-007', notes: '',
+      tests: [
+        { testLabel: 'WBC Count Verification', unit: '10^9/L', referenceValue: 5.0,  actualValue: 5.8,  deviation:  0.8, tolerance: '±0.5', result: 'Fail' },
+        { testLabel: 'RBC Count Verification', unit: '10^12/L',referenceValue: 4.5,  actualValue: 4.5,  deviation:  0.0, tolerance: '±0.2', result: 'Pass' },
+        { testLabel: 'Hemoglobin Level',       unit: 'g/dL',   referenceValue: 13.5, actualValue: 13.7, deviation:  0.2, tolerance: '±0.3', result: 'Pass' },
+        { testLabel: 'Platelet Count',         unit: '10^9/L', referenceValue: 250,  actualValue: 255,  deviation:   5,  tolerance: '±15',  result: 'Pass' },
+      ],
+    },
+    {
+      year: '2022', calibrationDate: '2022-08-01',
+      technician: 'Khaled Abbas', equipment: 'Sysmex CAL-REF-2022', certificateNo: 'CAL-2022-BLD-007', notes: '',
+      tests: [
+        { testLabel: 'WBC Count Verification', unit: '10^9/L', referenceValue: 5.0, actualValue: 4.7, deviation: -0.3, tolerance: '±0.5', result: 'Pass' },
+        { testLabel: 'RBC Count Verification', unit: '10^12/L',referenceValue: 4.5, actualValue: 4.4, deviation: -0.1, tolerance: '±0.2', result: 'Pass' },
+        { testLabel: 'Hemoglobin Level',       unit: 'g/dL',   referenceValue: 13.5, actualValue: 13.3, deviation: -0.2, tolerance: '±0.3', result: 'Pass' },
+      ],
+    },
+    {
+      year: '2021', calibrationDate: '2021-07-19',
+      technician: 'Khaled Abbas', equipment: 'Sysmex CAL-REF-2021', certificateNo: 'CAL-2021-BLD-007', notes: '',
+      tests: [
+        { testLabel: 'WBC Count Verification', unit: '10^9/L', referenceValue: 5.0, actualValue: 5.6, deviation: 0.6, tolerance: '±0.5', result: 'Fail' },
+        { testLabel: 'RBC Count Verification', unit: '10^12/L',referenceValue: 4.5, actualValue: 4.5, deviation: 0.0, tolerance: '±0.2', result: 'Pass' },
+        { testLabel: 'Platelet Count',         unit: '10^9/L', referenceValue: 250, actualValue: 244, deviation: -6,  tolerance: '±15',  result: 'Pass' },
+      ],
+    },
   ],
+
   'SN-IVF-012': [
-    { year: '2013', testLabel: 'Temperature Calibration', referenceValue: 37.0, actualValue: 37.05, deviation:  0.05, tolerance: '±0.3', result: 'Pass' },
-    { year: '2014', testLabel: 'Temperature Calibration', referenceValue: 37.0, actualValue: 36.95, deviation: -0.05, tolerance: '±0.3', result: 'Pass' },
-    { year: '2015', testLabel: 'Temperature Calibration', referenceValue: 37.0, actualValue: 37.15, deviation:  0.15, tolerance: '±0.3', result: 'Pass' },
-    { year: '2016', testLabel: 'Temperature Calibration', referenceValue: 37.0, actualValue: 36.85, deviation: -0.15, tolerance: '±0.3', result: 'Pass' },
-    { year: '2017', testLabel: 'Temperature Calibration', referenceValue: 37.0, actualValue: 37.20, deviation:  0.20, tolerance: '±0.3', result: 'Pass' },
-    { year: '2018', testLabel: 'Temperature Calibration', referenceValue: 37.0, actualValue: 37.35, deviation:  0.35, tolerance: '±0.3', result: 'Fail' },
-    { year: '2019', testLabel: 'Temperature Calibration', referenceValue: 37.0, actualValue: 36.70, deviation: -0.30, tolerance: '±0.3', result: 'Pass' },
-    { year: '2020', testLabel: 'Temperature Calibration', referenceValue: 37.0, actualValue: 36.60, deviation: -0.40, tolerance: '±0.3', result: 'Fail' },
-    { year: '2021', testLabel: 'Temperature Calibration', referenceValue: 37.0, actualValue: 37.10, deviation:  0.10, tolerance: '±0.3', result: 'Pass' },
-    { year: '2022', testLabel: 'Temperature Calibration', referenceValue: 37.0, actualValue: 36.80, deviation: -0.20, tolerance: '±0.3', result: 'Pass' },
-    { year: '2023', testLabel: 'Temperature Calibration', referenceValue: 37.0, actualValue: 37.40, deviation:  0.40, tolerance: '±0.3', result: 'Fail' },
-    { year: '2024', testLabel: 'Temperature Calibration', referenceValue: 37.0, actualValue: 37.00, deviation:  0.00, tolerance: '±0.3', result: 'Pass' },
+    {
+      year: '2024', calibrationDate: '2024-01-20',
+      technician: 'Dr. Hana Fathi', equipment: 'Traceable Calibration Thermometer T-2024', certificateNo: 'CAL-2024-IVF-012', notes: '',
+      tests: [
+        { testLabel: 'Temperature Calibration',  unit: '°C', referenceValue: 37.0, actualValue: 37.00, deviation:  0.00, tolerance: '±0.3', result: 'Pass' },
+        { testLabel: 'CO2 Concentration Check',  unit: '%',  referenceValue: 5.0,  actualValue: 5.05,  deviation:  0.05, tolerance: '±0.1', result: 'Pass' },
+        { testLabel: 'Humidity Level Check',     unit: '%',  referenceValue: 95.0, actualValue: 94.8,  deviation: -0.2,  tolerance: '±2.0', result: 'Pass' },
+      ],
+    },
+    {
+      year: '2023', calibrationDate: '2023-02-15',
+      technician: 'Dr. Hana Fathi', equipment: 'Traceable Calibration Thermometer T-2023', certificateNo: 'CAL-2023-IVF-012', notes: 'Humidity sensor replaced prior to calibration.',
+      tests: [
+        { testLabel: 'Temperature Calibration',  unit: '°C', referenceValue: 37.0, actualValue: 37.40, deviation:  0.40, tolerance: '±0.3', result: 'Fail' },
+        { testLabel: 'CO2 Concentration Check',  unit: '%',  referenceValue: 5.0,  actualValue: 5.12,  deviation:  0.12, tolerance: '±0.1', result: 'Fail' },
+        { testLabel: 'Humidity Level Check',     unit: '%',  referenceValue: 95.0, actualValue: 95.5,  deviation:  0.5,  tolerance: '±2.0', result: 'Pass' },
+      ],
+    },
+    {
+      year: '2022', calibrationDate: '2022-03-08',
+      technician: 'Sara Nour', equipment: 'Traceable Calibration Thermometer T-2022', certificateNo: 'CAL-2022-IVF-012', notes: '',
+      tests: [
+        { testLabel: 'Temperature Calibration',  unit: '°C', referenceValue: 37.0, actualValue: 36.80, deviation: -0.20, tolerance: '±0.3', result: 'Pass' },
+        { testLabel: 'CO2 Concentration Check',  unit: '%',  referenceValue: 5.0,  actualValue: 4.98,  deviation: -0.02, tolerance: '±0.1', result: 'Pass' },
+        { testLabel: 'Humidity Level Check',     unit: '%',  referenceValue: 95.0, actualValue: 94.5,  deviation: -0.5,  tolerance: '±2.0', result: 'Pass' },
+        { testLabel: 'Alarm Function Test',      unit: '°C', referenceValue: 38.5, actualValue: 38.5,  deviation:  0.0,  tolerance: '±0.2', result: 'Pass' },
+      ],
+    },
   ],
+
   'SN-PATH-003': [
-    { year: '2010', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 3000, deviation:    0, tolerance: '±100', result: 'Pass' },
-    { year: '2011', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 2980, deviation:  -20, tolerance: '±100', result: 'Pass' },
-    { year: '2012', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 3050, deviation:   50, tolerance: '±100', result: 'Pass' },
-    { year: '2013', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 2990, deviation:  -10, tolerance: '±100', result: 'Pass' },
-    { year: '2014', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 3010, deviation:   10, tolerance: '±100', result: 'Pass' },
-    { year: '2015', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 3080, deviation:   80, tolerance: '±100', result: 'Pass' },
-    { year: '2016', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 2950, deviation:  -50, tolerance: '±100', result: 'Pass' },
-    { year: '2017', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 3070, deviation:   70, tolerance: '±100', result: 'Pass' },
-    { year: '2018', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 3020, deviation:   20, tolerance: '±100', result: 'Pass' },
-    { year: '2019', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 2970, deviation:  -30, tolerance: '±100', result: 'Pass' },
-    { year: '2020', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 3040, deviation:   40, tolerance: '±100', result: 'Pass' },
-    { year: '2021', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 3000, deviation:    0, tolerance: '±100', result: 'Pass' },
-    { year: '2022', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 3060, deviation:   60, tolerance: '±100', result: 'Pass' },
-    { year: '2023', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 2990, deviation:  -10, tolerance: '±100', result: 'Pass' },
-    { year: '2024', testLabel: 'RPM Accuracy Test', referenceValue: 3000, actualValue: 3010, deviation:   10, tolerance: '±100', result: 'Pass' },
+    {
+      year: '2024', calibrationDate: '2024-05-10',
+      technician: 'Youssef Ibrahim', equipment: 'Eppendorf Reference Tachometer R-2024', certificateNo: 'CAL-2024-PATH-003', notes: '',
+      tests: [
+        { testLabel: 'RPM Accuracy Test (3000)',  unit: 'RPM', referenceValue: 3000, actualValue: 3010, deviation:  10, tolerance: '±100', result: 'Pass' },
+        { testLabel: 'RPM Accuracy Test (5000)',  unit: 'RPM', referenceValue: 5000, actualValue: 4995, deviation:  -5, tolerance: '±100', result: 'Pass' },
+        { testLabel: 'Timer Accuracy Test',       unit: 'sec', referenceValue: 60,   actualValue: 60,   deviation:   0, tolerance: '±1',   result: 'Pass' },
+      ],
+    },
+    {
+      year: '2023', calibrationDate: '2023-04-25',
+      technician: 'Youssef Ibrahim', equipment: 'Eppendorf Reference Tachometer R-2023', certificateNo: 'CAL-2023-PATH-003', notes: '',
+      tests: [
+        { testLabel: 'RPM Accuracy Test (3000)',  unit: 'RPM', referenceValue: 3000, actualValue: 2990, deviation: -10, tolerance: '±100', result: 'Pass' },
+        { testLabel: 'RPM Accuracy Test (5000)',  unit: 'RPM', referenceValue: 5000, actualValue: 5010, deviation:  10, tolerance: '±100', result: 'Pass' },
+        { testLabel: 'Timer Accuracy Test',       unit: 'sec', referenceValue: 60,   actualValue: 61,   deviation:   1, tolerance: '±1',   result: 'Pass' },
+        { testLabel: 'Temperature Check (Heated)', unit: '°C', referenceValue: 37.0, actualValue: 36.9, deviation: -0.1, tolerance: '±0.5', result: 'Pass' },
+      ],
+    },
+    {
+      year: '2022', calibrationDate: '2022-06-15',
+      technician: 'Ahmed Khalil', equipment: 'Eppendorf Reference Tachometer R-2022', certificateNo: 'CAL-2022-PATH-003', notes: '',
+      tests: [
+        { testLabel: 'RPM Accuracy Test (3000)', unit: 'RPM', referenceValue: 3000, actualValue: 3060, deviation:  60, tolerance: '±100', result: 'Pass' },
+        { testLabel: 'RPM Accuracy Test (5000)', unit: 'RPM', referenceValue: 5000, actualValue: 4980, deviation: -20, tolerance: '±100', result: 'Pass' },
+        { testLabel: 'Timer Accuracy Test',      unit: 'sec', referenceValue: 60,   actualValue: 60,   deviation:   0, tolerance: '±1',   result: 'Pass' },
+      ],
+    },
   ],
+
   'SN-OR-015': [
-    { year: '2014', testLabel: 'Steam Pressure Test', referenceValue: 134.0, actualValue: 134.5, deviation:  0.5, tolerance: '±1.5', result: 'Pass' },
-    { year: '2015', testLabel: 'Steam Pressure Test', referenceValue: 134.0, actualValue: 133.8, deviation: -0.2, tolerance: '±1.5', result: 'Pass' },
-    { year: '2016', testLabel: 'Steam Pressure Test', referenceValue: 134.0, actualValue: 134.2, deviation:  0.2, tolerance: '±1.5', result: 'Pass' },
-    { year: '2017', testLabel: 'Steam Pressure Test', referenceValue: 134.0, actualValue: 134.0, deviation:  0.0, tolerance: '±1.5', result: 'Pass' },
-    { year: '2018', testLabel: 'Steam Pressure Test', referenceValue: 134.0, actualValue: 133.5, deviation: -0.5, tolerance: '±1.5', result: 'Pass' },
-    { year: '2019', testLabel: 'Steam Pressure Test', referenceValue: 134.0, actualValue: 135.1, deviation:  1.1, tolerance: '±1.5', result: 'Pass' },
-    { year: '2020', testLabel: 'Steam Pressure Test', referenceValue: 134.0, actualValue: 134.8, deviation:  0.8, tolerance: '±1.5', result: 'Pass' },
-    { year: '2021', testLabel: 'Steam Pressure Test', referenceValue: 134.0, actualValue: 133.9, deviation: -0.1, tolerance: '±1.5', result: 'Pass' },
-    { year: '2022', testLabel: 'Steam Pressure Test', referenceValue: 134.0, actualValue: 134.3, deviation:  0.3, tolerance: '±1.5', result: 'Pass' },
-    { year: '2023', testLabel: 'Steam Pressure Test', referenceValue: 134.0, actualValue: 134.1, deviation:  0.1, tolerance: '±1.5', result: 'Pass' },
-    { year: '2024', testLabel: 'Steam Pressure Test', referenceValue: 134.0, actualValue: 134.6, deviation:  0.6, tolerance: '±1.5', result: 'Pass' },
+    {
+      year: '2024', calibrationDate: '2024-06-03',
+      technician: 'Dr. Omar Farouk', equipment: 'Autoclave Validation Kit AV-2024', certificateNo: 'CAL-2024-OR-015', notes: '',
+      tests: [
+        { testLabel: 'Steam Pressure Test (134°C)',     unit: '°C',  referenceValue: 134.0, actualValue: 134.6, deviation:  0.6, tolerance: '±1.5', result: 'Pass' },
+        { testLabel: 'Cycle Time Verification',         unit: 'min', referenceValue: 18.0,  actualValue: 18.2,  deviation:  0.2, tolerance: '±0.5', result: 'Pass' },
+        { testLabel: 'Pressure Gauge Calibration',      unit: 'bar', referenceValue: 2.1,   actualValue: 2.1,   deviation:  0.0, tolerance: '±0.1', result: 'Pass' },
+        { testLabel: 'Biological Indicator Test',       unit: '',    referenceValue: 0,     actualValue: 0,     deviation:  0,   tolerance: 'Negative', result: 'Pass' },
+      ],
+    },
+    {
+      year: '2023', calibrationDate: '2023-05-18',
+      technician: 'Dr. Omar Farouk', equipment: 'Autoclave Validation Kit AV-2023', certificateNo: 'CAL-2023-OR-015', notes: '',
+      tests: [
+        { testLabel: 'Steam Pressure Test (134°C)', unit: '°C',  referenceValue: 134.0, actualValue: 134.1, deviation:  0.1, tolerance: '±1.5', result: 'Pass' },
+        { testLabel: 'Cycle Time Verification',     unit: 'min', referenceValue: 18.0,  actualValue: 18.0,  deviation:  0.0, tolerance: '±0.5', result: 'Pass' },
+        { testLabel: 'Pressure Gauge Calibration',  unit: 'bar', referenceValue: 2.1,   actualValue: 2.08,  deviation: -0.02,tolerance: '±0.1', result: 'Pass' },
+        { testLabel: 'Biological Indicator Test',   unit: '',    referenceValue: 0,     actualValue: 0,     deviation:  0,   tolerance: 'Negative', result: 'Pass' },
+      ],
+    },
+    {
+      year: '2022', calibrationDate: '2022-04-20',
+      technician: 'Mariam Saad', equipment: 'Autoclave Validation Kit AV-2022', certificateNo: 'CAL-2022-OR-015', notes: '',
+      tests: [
+        { testLabel: 'Steam Pressure Test (134°C)', unit: '°C',  referenceValue: 134.0, actualValue: 134.3, deviation:  0.3, tolerance: '±1.5', result: 'Pass' },
+        { testLabel: 'Cycle Time Verification',     unit: 'min', referenceValue: 18.0,  actualValue: 18.5,  deviation:  0.5, tolerance: '±0.5', result: 'Pass' },
+        { testLabel: 'Pressure Gauge Calibration',  unit: 'bar', referenceValue: 2.1,   actualValue: 2.12,  deviation:  0.02,tolerance: '±0.1', result: 'Pass' },
+      ],
+    },
   ],
 };
 

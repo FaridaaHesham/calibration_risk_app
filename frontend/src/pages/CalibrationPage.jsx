@@ -5,6 +5,7 @@ import DeviceInfoCard from '../components/DeviceInfoCard';
 import ControlChart from '../components/ControlChart';
 import RecommendationCard from '../components/RecommendationCard';
 import CalibrationHistoryTable from '../components/CalibrationHistoryTable';
+import AddCalibrationForm from '../components/AddCalibrationForm';
 import './CalibrationPage.css';
 
 const SearchIcon = () => (
@@ -27,13 +28,13 @@ export default function CalibrationPage() {
   const [predStability, setPredStability]       = useState(null);
   const [predDevices, setPredDevices]           = useState([]);
   const [predLoading, setPredLoading]           = useState(false);
-  const [showPredictions, setShowPredictions]   = useState(false);
+  const [activeTab, setActiveTab]               = useState('direct'); // 'direct' | 'prediction' | 'add'
 
   useEffect(() => {
-    if (showPredictions) {
+    if (activeTab === 'prediction') {
       handleFetchPredictions(selectedInterval, predStability);
     }
-  }, [selectedInterval, predStability, showPredictions]);
+  }, [selectedInterval, predStability, activeTab]);
 
   async function handleFetchPredictions(interval, stability) {
     setPredLoading(true);
@@ -92,43 +93,51 @@ export default function CalibrationPage() {
   return (
     <div className="cal-page">
       {/* ─────────────────────────────────────────────────────────────
-          Step 1 — Search controls
+          Page Mode Toggle Bar
       ───────────────────────────────────────────────────────────── */}
-      <section className="cal-section" aria-label="Device search">
-        <div className="cal-section-header">
-          <StepBadge n={1} />
-          <div>
-            <h2 className="cal-section-title">Select Device or Search by Calibration Prediction</h2>
-            <p className="cal-section-desc">Search by serial number or filter devices by predicted calibration schedule (e.g., predicted after 2 years).</p>
-          </div>
-        </div>
+      <div style={{ marginBottom: 24, display: 'flex', gap: 10, alignItems: 'center' }}>
+        <button
+          type="button"
+          className={`btn ${activeTab === 'direct' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => setActiveTab('direct')}
+          style={{ fontSize: '0.8125rem' }}
+        >
+          Direct Serial Lookup
+        </button>
+        <button
+          type="button"
+          className={`btn ${activeTab === 'prediction' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => setActiveTab('prediction')}
+          style={{ fontSize: '0.8125rem' }}
+        >
+          Search
+        </button>
+        <button
+          type="button"
+          className={`btn ${activeTab === 'add' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => setActiveTab('add')}
+          style={{ fontSize: '0.8125rem' }}
+        >
+          Add Calibration Data
+        </button>
+      </div>
 
-        {/* Prediction Search Toggle Bar */}
-        <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button
-            type="button"
-            className={`btn ${!showPredictions ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => setShowPredictions(false)}
-            style={{ fontSize: '0.8125rem' }}
-          >
-            Direct Serial Lookup
-          </button>
-          <button
-            type="button"
-            className={`btn ${showPredictions ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => setShowPredictions(true)}
-            style={{ fontSize: '0.8125rem' }}
-          >
-            🎯 Search by Calibration Prediction
-          </button>
-        </div>
+      {/* ─────────────────────────────────────────────────────────────
+          Add Calibration Data Mode
+      ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'add' && (
+        <AddCalibrationForm />
+      )}
 
-        {showPredictions ? (
-          <div className="card pred-search-card">
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: '0 0 6px' }}>Filter Devices by Predicted Calibration Interval</h3>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: 0 }}>
-              Select a predicted interval to list all medical devices estimated for calibration within that timeframe.
-            </p>
+      {/* ─────────────────────────────────────────────────────────────
+          Prediction Search Mode
+      ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'prediction' && (
+        <div className="card pred-search-card">
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: '0 0 6px' }}>Filter Devices by Predicted Calibration Interval</h3>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: 0 }}>
+            Select a predicted interval to list all medical devices estimated for calibration within that timeframe.
+          </p>
 
             <div className="pred-filter-bar">
               <span className="pred-filter-label">Filter by Prediction:</span>
@@ -144,21 +153,21 @@ export default function CalibrationPage() {
                 className={`pred-filter-btn ${selectedInterval === 2 ? 'active' : ''}`}
                 onClick={() => { setSelectedInterval(2); setPredStability(null); }}
               >
-                📅 Predict: 2 Years Interval (Stable)
+                Predict: 2 Years Interval (Stable)
               </button>
               <button
                 type="button"
                 className={`pred-filter-btn ${selectedInterval === 1 && predStability !== 'unstable' ? 'active' : ''}`}
                 onClick={() => { setSelectedInterval(1); setPredStability(null); }}
               >
-                🗓️ Predict: 1 Year Interval (Marginal)
+                Predict: 1 Year Interval (Marginal)
               </button>
               <button
                 type="button"
                 className={`pred-filter-btn ${predStability === 'unstable' ? 'active' : ''}`}
                 onClick={() => { setSelectedInterval(null); setPredStability('unstable'); }}
               >
-                ⚠️ Predict: Unstable (Immediate)
+                Predict: Unstable (Immediate)
               </button>
             </div>
 
@@ -214,8 +223,23 @@ export default function CalibrationPage() {
               </div>
             )}
           </div>
-        ) : (
-          <form id="device-search-form" onSubmit={handleSearch} className="cal-search-form card">
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          Direct Search Mode (Step-by-step)
+      ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'direct' && (
+        <>
+          <section className="cal-section" aria-label="Device search">
+            <div className="cal-section-header">
+              <StepBadge n={1} />
+              <div>
+                <h2 className="cal-section-title">Select Device</h2>
+                <p className="cal-section-desc">Search for a medical device by its unique serial number.</p>
+              </div>
+            </div>
+
+            <form id="device-search-form" onSubmit={handleSearch} className="cal-search-form card">
             <div className="cal-search-fields">
               {/* Department */}
               <div className="cal-field">
@@ -271,23 +295,17 @@ export default function CalibrationPage() {
               <code onClick={() => { setSerialInput('SN-OR-015'); executeSearch('SN-OR-015'); }}>SN-OR-015</code>
             </p>
           </form>
-        )}
-      </section>
+          </section>
+        </>
+      )}
 
-
-      {/* ─────────────────────────────────────────────────────────────
-          Loading state
-      ───────────────────────────────────────────────────────────── */}
-      {loading && (
+      {activeTab === 'direct' && loading && (
         <div className="card cal-loading">
           <DeviceInfoCard loading={true} device={null} />
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────
-          Not found
-      ───────────────────────────────────────────────────────────── */}
-      {notFound && !loading && (
+      {activeTab === 'direct' && notFound && !loading && (
         <div className="card cal-not-found empty-state">
           <NotFoundIcon />
           <h3>No device found</h3>
@@ -295,10 +313,7 @@ export default function CalibrationPage() {
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────
-          Results
-      ───────────────────────────────────────────────────────────── */}
-      {hasResults && !loading && (
+      {activeTab === 'direct' && hasResults && !loading && (
         <>
           {/* Step 2 — Device info */}
           <section className="cal-section" aria-label="Device information">

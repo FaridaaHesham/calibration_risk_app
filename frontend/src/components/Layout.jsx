@@ -7,8 +7,8 @@ import Sidebar from './Sidebar';
 import './Layout.css';
 
 const PAGE_TITLES = {
-  '/app/calibration': 'Device Calibration',
-  '/app/risk':        'Risk Classification',
+  '/app/calibration':     'Device Calibration',
+  '/app/risk':            'Risk Classification',
 };
 
 export default function Layout() {

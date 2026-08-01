@@ -2,13 +2,159 @@
 
 .cal-history-table-wrap {
   overflow-x: auto;
-  border-radius: var(--radius-md);
+}
+
+.cal-history-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 10px 16px 8px;
+  border-bottom: 1px solid var(--border);
+  margin: 0;
 }
 
 .cal-history-table {
-  min-width: 700px;
+  min-width: 640px;
 }
 
+/* ── Year (summary) row ─────────────────────────────────────── */
+.year-row {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.year-row:hover td {
+  background: #EBF5FB !important;
+}
+
+.year-row--open td {
+  background: #EBF5FB;
+  border-bottom: none;
+}
+
+.year-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  font-weight: 600 !important;
+  color: var(--primary) !important;
+  min-width: 90px;
+}
+
+.year-label {
+  font-size: 0.9375rem;
+}
+
+/* Chevron icon */
+.expand-chevron {
+  transition: transform 0.2s ease;
+  color: var(--primary-light);
+  flex-shrink: 0;
+}
+.expand-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* ── Pass / Fail summary pills ───────────────────────────────── */
+.pass-fail-summary {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.pf-pass {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--success-light);
+  color: var(--success-text);
+}
+
+.pf-fail {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--danger-light);
+  color: var(--danger-text);
+}
+
+/* ── Sub-header row (expanded panel) ────────────────────────── */
+.subheader-row > td {
+  padding: 0 !important;
+  border-bottom: 2px solid var(--border-dark) !important;
+  background: #F7FBFF !important;
+}
+
+.subheader-inner {
+  padding: 12px 18px 14px 36px;
+  border-left: 3px solid var(--primary-light);
+}
+
+/* ── Sub-table (tests inside expanded row) ────────────────────── */
+.sub-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+.sub-table thead th {
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-dark);
+  background: transparent;
+}
+
+.sub-table tbody .sub-row td {
+  padding: 7px 10px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.sub-table tbody .sub-row:last-child td {
+  border-bottom: none;
+}
+
+.sub-table tbody .sub-row:hover td {
+  background: rgba(46, 134, 193, 0.04);
+}
+
+.sub-test-label {
+  font-weight: 500;
+  color: var(--text-primary) !important;
+}
+
+.sub-unit {
+  color: var(--text-muted) !important;
+  font-style: italic;
+}
+
+/* ── Session metadata ────────────────────────────────────────── */
+.session-notes,
+.session-cert {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-dark);
+}
+
+.session-notes strong,
+.session-cert strong {
+  color: var(--text-secondary);
+}
+
+/* ── Deviation colouring ─────────────────────────────────────── */
 .col-year {
   font-weight: 600;
   color: var(--text-primary) !important;
@@ -21,8 +167,7 @@
   text-align: right;
 }
 
-/* Deviation colouring */
-.dev-zero   { color: var(--text-muted) !important; }
-.dev-low    { color: var(--success) !important; font-weight: 500; }
-.dev-medium { color: var(--warning) !important; font-weight: 500; }
-.dev-high   { color: var(--danger)  !important; font-weight: 600; }
+.dev-zero   { color: var(--text-muted)   !important; }
+.dev-low    { color: var(--success)      !important; font-weight: 500; }
+.dev-medium { color: var(--warning)      !important; font-weight: 500; }
+.dev-high   { color: var(--danger)       !important; font-weight: 600; }

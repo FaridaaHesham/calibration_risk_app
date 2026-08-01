@@ -48,7 +48,7 @@ function ChartTooltip({ active, payload, label }) {
         </p>
       ))}
       {isOut && (
-        <p className="chart-tooltip-alert">⚠ Out of control limits</p>
+        <p className="chart-tooltip-alert">Out of control limits</p>
       )}
     </div>
   );
@@ -77,10 +77,10 @@ export default function ControlChart({ data }) {
   return (
     <div className="control-chart-wrap">
       <div className="control-chart-legend-manual">
-        <span className="legend-item legend-value">● Measured Value</span>
-        <span className="legend-item legend-mean">— Center Line (Mean)</span>
-        <span className="legend-item legend-limit">- - UCL / LCL</span>
-        <span className="legend-item legend-oc">● Out of Control</span>
+        <span className="legend-item legend-value">Measured Value</span>
+        <span className="legend-item legend-mean">Center Line (Mean)</span>
+        <span className="legend-item legend-limit">UCL / LCL</span>
+        <span className="legend-item legend-oc">Out of Control Point</span>
       </div>
 
       <ResponsiveContainer width="100%" height={340}>
