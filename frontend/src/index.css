@@ -197,7 +197,7 @@ a:hover { text-decoration: underline; }
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
-  border: none;
+  border: 1.5px solid transparent;
   transition: var(--transition);
   white-space: nowrap;
 }
@@ -222,6 +222,17 @@ a:hover { text-decoration: underline; }
   border: 1.5px solid var(--border-dark);
 }
 .btn-secondary:hover:not(:disabled) {
+  background: #fff;
+  border-color: var(--primary-light);
+  color: var(--primary);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border-dark);
+}
+.btn-outline:hover:not(:disabled) {
   background: #fff;
   border-color: var(--primary-light);
   color: var(--primary);

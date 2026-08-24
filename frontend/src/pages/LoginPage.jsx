@@ -56,12 +56,6 @@ export default function LoginPage() {
           <p className="login-subtitle">Sign in to the Calibration Management System</p>
         </div>
 
-        {/* Demo hint */}
-        <div className="login-hint">
-          <strong>Demo credentials:</strong> username <code>admin</code>, password <code>admin123</code>
-          &nbsp;— or enter any non-empty values.
-        </div>
-
         <form id="login-form" onSubmit={handleSubmit} noValidate>
           {/* Error message */}
           {error && (

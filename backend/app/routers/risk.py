@@ -1,32 +1,25 @@
 """
-routers/risk.py — Risk classification endpoints.
-
-TODO: Risk classification logic and requirements are still to be determined.
-      This entire router is a placeholder returning mock data.
-      Replace with the real risk scoring model when requirements are finalised.
+routers/risk.py — Risk classification placeholder.
+Logic and requirements are still to be determined.
 """
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.database import get_db
 from app.schemas import RiskDataSchema
-from app import mock_data
 
 router = APIRouter(prefix="/api/risk", tags=["risk"])
 
 
-@router.get("/{serial_number}", response_model=RiskDataSchema)
-async def get_risk_data(serial_number: str):
+@router.get("/{serial_number:path}", response_model=RiskDataSchema)
+async def get_risk_data(serial_number: str, db: AsyncSession = Depends(get_db)):
     """
-    Return risk classification scorecard for a device.
-
-    TODO: Implement the real risk scoring algorithm here once requirements
-          are finalised. Expected inputs: device history, usage patterns,
-          maintenance logs, patient impact score.
-          Then persist results to a RiskAssessment table in the DB.
+    Risk classification is not yet implemented.
+    Returns HTTP 501 with a clear message so the frontend can handle it gracefully.
     """
-    key = serial_number.upper()
-    risk = mock_data.MOCK_RISK_DATA.get(key)
-    if risk is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No risk data found for serial '{serial_number}'.",
-        )
-    return risk
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail=(
+            "Risk classification logic has not been implemented yet. "
+            "This endpoint will be available in a future release."
+        ),
+    )

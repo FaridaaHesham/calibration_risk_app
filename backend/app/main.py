@@ -7,7 +7,7 @@ Run with:  uvicorn app.main:app --reload
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import auth, devices, calibrations, risk
+from app.routers import auth, devices, calibrations, risk, tolerances
 
 app = FastAPI(
     title="Adam International Hospital — Calibration & Risk API",
@@ -40,6 +40,7 @@ app.include_router(auth.router)
 app.include_router(devices.router)
 app.include_router(calibrations.router)
 app.include_router(risk.router)
+app.include_router(tolerances.router)
 
 
 @app.get("/", tags=["health"])

@@ -7,6 +7,25 @@
   max-width: 1200px;
 }
 
+/* ── Page Tab Bar ──────────────────────────────────────────── */
+.cal-tab-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.cal-tab-bar .btn-outline {
+  border: none;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-secondary);
+}
+
+.cal-tab-bar .btn-outline:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-primary);
+}
+
 /* ── Section wrapper ───────────────────────────────────────── */
 .cal-section-header {
   display: flex;
@@ -188,6 +207,12 @@
   border-bottom: 1px solid var(--border);
 }
 
+.pred-results-table th:last-child,
+.pred-results-table td:last-child {
+  white-space: nowrap;
+  width: 1%;
+}
+
 .pred-results-table th {
   background: var(--bg-header, rgba(255, 255, 255, 0.03));
   color: var(--text-muted);
@@ -228,3 +253,111 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
+/* ── Prediction search box ─────────────────────────────────── */
+.pred-search-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.pred-search-box {
+  position: relative;
+  max-width: 360px;
+  margin-top: 0;
+}
+
+.pred-search-box .form-input {
+  padding-left: 32px;
+}
+
+.pred-search-box-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  display: flex;
+  pointer-events: none;
+}
+
+/* ── Results table action cell ─────────────────────────────── */
+.pred-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ── Edit Device modal ─────────────────────────────────────── */
+.edit-device-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.edit-device-modal {
+  width: min(480px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.edit-device-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.edit-device-modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.edit-device-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: var(--transition);
+}
+
+.edit-device-modal-close:hover {
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+
+.edit-device-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+  margin-bottom: 24px;
+}
+
+.edit-device-grid .tf {
+  display: flex;
+  flex-direction: column;
+}
+
+.edit-device-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 480px) {
+  .edit-device-grid {
+    grid-template-columns: 1fr;
+  }
+}

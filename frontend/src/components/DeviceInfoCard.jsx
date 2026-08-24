@@ -1,4 +1,6 @@
 // src/components/DeviceInfoCard.jsx
+import { useState, useEffect } from 'react';
+import { updateDevice } from '../api/devices';
 import './DeviceInfoCard.css';
 
 /** Row inside the info card */
@@ -13,9 +15,31 @@ function InfoRow({ label, value }) {
 
 /**
  * Displays static device information.
- * @param {{ device: object|null, loading: boolean }} props
+ * @param {{ device: object|null, loading: boolean, onDeviceUpdated: function }} props
  */
-export default function DeviceInfoCard({ device, loading }) {
+export default function DeviceInfoCard({ device, loading, onDeviceUpdated }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [dept, setDept] = useState('');
+  const [deviceType, setDeviceType] = useState('');
+  const [model, setModel] = useState('');
+  const [manufacturer, setManufacturer] = useState('');
+  const [resolution, setResolution] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  // Sync state when device prop changes
+  useEffect(() => {
+    if (device) {
+      setDept(device.department || '');
+      setDeviceType(device.deviceType || '');
+      setModel(device.model || '');
+      setManufacturer(device.manufacturer || '');
+      setResolution(device.resolution !== undefined && device.resolution !== null ? device.resolution.toString() : '');
+      setIsEditing(false);
+      setError('');
+    }
+  }, [device]);
+
   if (loading) {
     return (
       <div className="device-card card">
@@ -37,24 +61,121 @@ export default function DeviceInfoCard({ device, loading }) {
 
   if (!device) return null;
 
+  async function handleSave(e) {
+    e.preventDefault();
+    if (!deviceType.trim()) {
+      setError('Device Type is required.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await updateDevice(device.serialNumber, {
+        department_name: dept.trim() || null,
+        device_type: deviceType.trim(),
+        model: model.trim() || null,
+        manufacturer: manufacturer.trim() || null,
+        resolution: resolution.trim() ? parseFloat(resolution.trim()) : null,
+      });
+      setIsEditing(false);
+      if (onDeviceUpdated) {
+        onDeviceUpdated(updated);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to update device.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="device-card card">
-      <div className="device-card-header">
-        <DeviceIcon />
-        <div>
-          <h2>Device Information</h2>
-          <p className="device-card-subtitle">Static record from the equipment registry</p>
+      <div className="device-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <DeviceIcon />
+          <div>
+            <h2>Device Information</h2>
+            <p className="device-card-subtitle">Static record from the equipment registry</p>
+          </div>
         </div>
+        {!isEditing && (
+          <button
+            type="button"
+            className="btn btn-outline"
+            style={{ padding: '4px 12px', fontSize: '0.75rem' }}
+            onClick={() => setIsEditing(true)}
+          >
+            Edit Info
+          </button>
+        )}
       </div>
 
-      <div className="device-card-body">
-        <InfoRow label="Serial Number"  value={device.serialNumber} />
-        <InfoRow label="Department"     value={device.department} />
-        <InfoRow label="Device Type"    value={device.deviceType} />
-        <InfoRow label="Model"          value={device.model} />
-        <InfoRow label="Manufacturer"   value={device.manufacturer} />
-        {/* TODO: Add more fields here as requirements expand */}
-      </div>
+      {isEditing ? (
+        <form onSubmit={handleSave} className="device-card-body edit-form">
+          {error && <div className="error-message" style={{ color: 'var(--danger)', fontSize: '0.8rem', marginBottom: 10 }}>{error}</div>}
+          
+          <div className="edit-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 15px', marginBottom: 15 }}>
+            <div className="tf" style={{ display: 'flex', flexDirection: 'column' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600 }}>Serial Number</label>
+              <input type="text" className="form-input" value={device.serialNumber} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
+            </div>
+
+            <div className="tf" style={{ display: 'flex', flexDirection: 'column' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600 }}>Department</label>
+              <input type="text" className="form-input" value={dept} onChange={(e) => setDept(e.target.value)} />
+            </div>
+
+            <div className="tf" style={{ display: 'flex', flexDirection: 'column' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600 }}>Device Type <span style={{ color: 'var(--danger)' }}>*</span></label>
+              <input type="text" className="form-input" value={deviceType} onChange={(e) => setDeviceType(e.target.value)} required />
+            </div>
+
+            <div className="tf" style={{ display: 'flex', flexDirection: 'column' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600 }}>Model</label>
+              <input type="text" className="form-input" value={model} onChange={(e) => setModel(e.target.value)} />
+            </div>
+
+            <div className="tf" style={{ display: 'flex', flexDirection: 'column' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600 }}>Manufacturer</label>
+              <input type="text" className="form-input" value={manufacturer} onChange={(e) => setManufacturer(e.target.value)} />
+            </div>
+
+            <div className="tf" style={{ display: 'flex', flexDirection: 'column' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600 }}>Resolution</label>
+              <input type="number" step="any" className="form-input" value={resolution} onChange={(e) => setResolution(e.target.value)} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+              onClick={() => { setIsEditing(false); setError(''); }}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="device-card-body">
+          <InfoRow label="Serial Number"  value={device.serialNumber} />
+          <InfoRow label="Department"     value={device.department || '—'} />
+          <InfoRow label="Device Type"    value={device.deviceType} />
+          <InfoRow label="Model"          value={device.model || '—'} />
+          <InfoRow label="Manufacturer"   value={device.manufacturer || '—'} />
+          <InfoRow label="Resolution"     value={device.resolution !== undefined && device.resolution !== null ? device.resolution : '—'} />
+        </div>
+      )}
     </div>
   );
 }

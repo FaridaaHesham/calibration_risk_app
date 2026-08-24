@@ -1,85 +1,135 @@
 // src/api/devices.js
-// Device, calibration, and risk API functions with mock fallback.
-//
-// TODO: Set USE_MOCK = false when the backend is ready.
+// All device, calibration, and prediction API calls.
+// Talks directly to the FastAPI backend — no mock data.
 
 import apiClient from './client';
-import {
-  MOCK_DEVICES,
-  MOCK_CALIBRATION_HISTORY,
-  MOCK_CHART_DATA,
-  MOCK_RISK_DATA,
-} from '../data/mockData';
 
-const USE_MOCK = true; // TODO: flip to false when backend is live
+// ─── Departments ─────────────────────────────────────────────────────────
 
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+/**
+ * Fetch the real list of department names present in the devices table.
+ */
+export async function getDepartments() {
+  const res = await apiClient.get('/api/devices/departments');
+  return res.data;
+}
 
 // ─── Devices ───────────────────────────────────────────────────────────────
 
 /**
- * Fetch static device info by serial number.
- * @returns device object or null if not found
+ * Fetch device info by serial number.
+ * Returns the device object or null if not found (404).
  */
 export async function getDevice(serialNumber) {
-  if (USE_MOCK) {
-    await delay(600);
-    return MOCK_DEVICES[serialNumber.toUpperCase()] || null;
-  }
-  // TODO: real API call
   try {
-    const res = await apiClient.get(`/api/devices/${serialNumber}`);
-    return res.data;
+    const res = await apiClient.get(`/api/devices/${encodeURIComponent(serialNumber)}`);
+    // Normalise field names so existing UI components work unchanged
+    const d = res.data;
+    return {
+      id:           d.id,
+      serialNumber: d.serial_number,
+      department:   d.department,
+      deviceType:   d.device_type,
+      model:        d.model,
+      manufacturer: d.manufacturer,
+    };
   } catch (err) {
     if (err.response?.status === 404) return null;
     throw err;
+  }
+}
+
+/**
+ * Register a brand-new device.
+ * @param {{ serialNumber, department, deviceType, model, manufacturer }} deviceData
+ * @throws Error with a user-readable message if the serial number already exists
+ */
+export async function createDevice(deviceData) {
+  try {
+    const res = await apiClient.post('/api/devices', {
+      serial_number: deviceData.serialNumber,
+      department_name: deviceData.department,
+      device_type: deviceData.deviceType,
+      model: deviceData.model || null,
+      manufacturer: deviceData.manufacturer || null,
+      resolution: deviceData.resolution === '' || deviceData.resolution === undefined ? null : Number(deviceData.resolution),
+    });
+    const d = res.data;
+    return {
+      id:           d.id,
+      serialNumber: d.serial_number,
+      department:   d.department,
+      deviceType:   d.device_type,
+      model:        d.model,
+      manufacturer: d.manufacturer,
+      resolution:   d.resolution,
+    };
+  } catch (err) {
+    const detail = err.response?.data?.detail;
+    throw new Error(detail || 'Failed to create device. Please try again.');
   }
 }
 
 // ─── Calibrations ──────────────────────────────────────────────────────────
 
 /**
- * Fetch historical calibration records for a device.
- * @returns array of calibration record objects
+ * Fetch calibration records (with nested test results) for a device.
+ * Records are returned most-recent-first.
+ * Each record has: { id, calibration_year, result, certificate_num,
+ *                    accessory_*, tests: [...] }
  */
 export async function getCalibrationHistory(serialNumber) {
-  if (USE_MOCK) {
-    await delay(400);
-    return MOCK_CALIBRATION_HISTORY[serialNumber.toUpperCase()] || [];
-  }
-  // TODO: real API call
-  const res = await apiClient.get(`/api/calibrations/${serialNumber}`);
+  const res = await apiClient.get(`/api/calibrations/${encodeURIComponent(serialNumber)}`);
   return res.data;
 }
 
 /**
- * Fetch control chart data + recommendation for a device.
- * @returns { points: [], recommendation: {} }
+ * Save a new calibration session (record + test rows) for an existing device.
+ * @param {{
+ *   serialNumber: string,
+ *   calibrationYear: number,
+ *   certificateNum?: string,
+ *   accessoryType?: string,
+ *   accessoryModel?: string,
+ *   accessorySerial?: string,
+ *   tests: Array<{ testLabel, testPointUnit, referenceValue, actualValue, minValue, maxValue }>
+ * }} payload
+ * @throws Error with a user-readable message on failure
+ */
+export async function createCalibrationRecord(payload) {
+  try {
+    const res = await apiClient.post('/api/calibrations', {
+      serial_number: payload.serialNumber,
+      calibration_year: Number(payload.calibrationYear),
+      certificate_num: payload.certificateNum || null,
+      accessory_type: payload.accessoryType || null,
+      accessory_model: payload.accessoryModel || null,
+      accessory_serial: payload.accessorySerial || null,
+      tests: payload.tests.map((t) => ({
+        test_label: t.testLabel,
+        test_point_unit: t.testPointUnit || null,
+        reference_value: t.referenceValue === '' ? null : Number(t.referenceValue),
+        actual_value: Number(t.actualValue),
+        min_value: Number(t.minValue),
+        max_value: Number(t.maxValue),
+      })),
+    });
+    return res.data;
+  } catch (err) {
+    const detail = err.response?.data?.detail;
+    throw new Error(detail || 'Failed to save calibration record. Please try again.');
+  }
+}
+
+/**
+ * Fetch control chart data + prediction recommendation for a device.
+ * Returns: { accessories: { [accessoryType]: { points: [...], recommendation: {...} } } }
+ *
+ * The `score` field on each point is the closeness-to-edge percentage (0–100+).
  */
 export async function getChartData(serialNumber) {
-  if (USE_MOCK) {
-    await delay(400);
-    return MOCK_CHART_DATA[serialNumber.toUpperCase()] || null;
-  }
-  // TODO: real API call — this is where the statistical engine results appear
-  const res = await apiClient.get(`/api/calibrations/${serialNumber}/chart`);
-  return res.data;
-}
-
-// ─── Risk ──────────────────────────────────────────────────────────────────
-
-/**
- * Fetch risk classification scorecard for a device.
- * @returns risk data object or null
- */
-export async function getRiskData(serialNumber) {
-  if (USE_MOCK) {
-    await delay(600);
-    return MOCK_RISK_DATA[serialNumber.toUpperCase()] || null;
-  }
-  // TODO: real API call
   try {
-    const res = await apiClient.get(`/api/risk/${serialNumber}`);
+    const res = await apiClient.get(`/api/calibrations/${encodeURIComponent(serialNumber)}/chart`);
     return res.data;
   } catch (err) {
     if (err.response?.status === 404) return null;
@@ -87,51 +137,88 @@ export async function getRiskData(serialNumber) {
   }
 }
 
-// ─── Calibration Predictions Search ────────────────────────────────────────
+// ─── Risk ──────────────────────────────────────────────────────────────────
 
 /**
- * Fetch devices filtered by predicted calibration interval (e.g., 2 years) and/or stability.
- * @param {number|string|null} intervalYears - e.g., 2, 1, or null for all
- * @param {string|null} stability - 'stable' | 'marginal' | 'unstable' | null
- * @returns {Array} array of predicted device objects
+ * Fetch risk classification data for a device.
+ * Returns null if the endpoint returns 404 or 501 (not yet implemented).
  */
-export async function getDevicesByPrediction(intervalYears = null, stability = null) {
+export async function getRiskData(serialNumber) {
   try {
-    const params = {};
-    if (intervalYears !== null && intervalYears !== undefined && intervalYears !== '') {
-      params.interval_years = intervalYears;
-    }
-    if (stability) {
-      params.stability = stability;
-    }
-    const res = await apiClient.get('/api/devices/predictions', { params });
+    const res = await apiClient.get(`/api/risk/${encodeURIComponent(serialNumber)}`);
     return res.data;
   } catch (err) {
-    console.warn('API call to /api/devices/predictions failed, falling back to mock filtering:', err);
-    // Mock fallback logic
-    await delay(300);
-    const results = [];
-    const targetInterval = intervalYears ? Number(intervalYears) : null;
-    for (const [sn, device] of Object.entries(MOCK_DEVICES)) {
-      const chart = MOCK_CHART_DATA[sn];
-      if (!chart) continue;
-      const rec = chart.recommendation;
-      const recInterval = rec.intervalYears || rec.interval_years;
-      if (targetInterval !== null && recInterval !== targetInterval) continue;
-      if (stability && rec.stability.toLowerCase() !== stability.toLowerCase()) continue;
-      results.push({
-        serial_number: device.serialNumber || device.serial_number,
-        department: device.department,
-        device_type: device.deviceType || device.device_type,
-        model: device.model,
-        manufacturer: device.manufacturer,
-        stability: rec.stability,
-        label: rec.label,
-        interval_years: recInterval,
-        next_date: rec.nextDate || rec.next_date,
-        message: rec.message,
-      });
-    }
-    return results;
+    if (err.response?.status === 404) return null;
+    if (err.response?.status === 501) return null; // not implemented yet
+    throw err;
   }
-}
+}
+
+// ─── Calibration Predictions ────────────────────────────────────────────────
+
+/**
+ * Fetch all devices with their predicted calibration intervals.
+ * @param {number|null} intervalYears  - filter to 1 or 2
+ * @param {string|null} stability      - "stable" | "marginal" | "unstable"
+ * @param {string|null} search         - free text query
+ */
+export async function getDevicesByPrediction(intervalYears = null, stability = null, search = null) {
+  const params = {};
+  if (intervalYears !== null && intervalYears !== undefined && intervalYears !== '') {
+    params.interval_years = intervalYears;
+  }
+  if (stability) {
+    params.stability = stability;
+  }
+  if (search) {
+    params.search = search;
+  }
+  const res = await apiClient.get('/api/devices/predictions', { params, timeout: 30_000 });
+  return res.data;
+}
+
+/**
+ * Fetch the full prediction detail for a single device by serial number.
+ * Returns: { device_id, serial_number, year_scores, interval_years, rule, message }
+ */
+export async function getDevicePrediction(serialNumber) {
+  try {
+    const res = await apiClient.get(`/api/devices/${encodeURIComponent(serialNumber)}/prediction`);
+    return res.data;
+  } catch (err) {
+    if (err.response?.status === 404) return null;
+    throw err;
+  }
+}
+
+/**
+ * Update editable fields of an existing device.
+ * @param {string} serialNumber
+ * @param {{ department_name?, device_type?, model?, manufacturer?, resolution? }} fields
+ */
+export async function updateDevice(serialNumber, fields) {
+  try {
+    const res = await apiClient.put(`/api/devices/${encodeURIComponent(serialNumber)}`, fields);
+    const d = res.data;
+    return {
+      id:           d.id,
+      serialNumber: d.serial_number,
+      department:   d.department,
+      deviceType:   d.device_type,
+      model:        d.model,
+      manufacturer: d.manufacturer,
+      resolution:   d.resolution,
+    };
+  } catch (err) {
+    const detail = err.response?.data?.detail;
+    throw new Error(detail || 'Failed to update device. Please try again.');
+  }
+}
+
+/**
+ * Fetch all tolerance rules configured in the database.
+ */
+export async function getToleranceRules() {
+  const res = await apiClient.get('/api/tolerances');
+  return res.data;
+}

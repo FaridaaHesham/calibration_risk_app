@@ -1,5 +1,8 @@
 .add-cal-form-wrap {
+  width: 100%;
   max-width: 1050px;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 #add-calibration-form {

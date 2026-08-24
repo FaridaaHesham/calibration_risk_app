@@ -1,6 +1,43 @@
-from sqlalchemy import String, Integer, ForeignKey, Numeric
+"""
+models.py — SQLAlchemy ORM models for Adam International Hospital Calibration App.
+Tables must already exist in the Neon/Postgres DB.
+"""
+from datetime import datetime
+from sqlalchemy import String, Integer, Boolean, ForeignKey, Numeric, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
+
+
+class ToleranceRule(Base):
+    """
+    Per-test-label tolerance specification.
+
+    tolerance_type: "percentage" → min = ref*(1-value/100), max = ref*(1+value/100)
+                    "absolute"   → min = ref - value,       max = ref + value
+    """
+    __tablename__ = "tolerance_rules"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    test_label: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    tolerance_type: Mapped[str] = mapped_column(String, nullable=False)   # "percentage" | "absolute"
+    tolerance_value: Mapped[float] = mapped_column(Numeric, nullable=False)
+    unit: Mapped[str] = mapped_column(String, nullable=True)              # display hint, e.g. "mmHg"
+    notes: Mapped[str] = mapped_column(String, nullable=True)
+
+
+class User(Base):
+    """Login accounts for hospital staff."""
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    full_name: Mapped[str] = mapped_column(String, nullable=True)
+    role: Mapped[str] = mapped_column(String, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Device(Base):

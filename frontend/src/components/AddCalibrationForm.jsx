@@ -1,18 +1,18 @@
-import { useState, useCallback } from 'react';
-import { DEPARTMENTS } from '../data/mockData';
-import { getDevice } from '../api/devices';
+import { useState, useCallback, useEffect } from 'react';
+import { getDevice, createDevice, createCalibrationRecord, getDepartments, getToleranceRules } from '../api/devices';
 import './AddCalibrationForm.css';
 
 // ─── Empty test row template ──────────────────────────────────────────────
+// Field names match the real calibration_tests table columns
+// (min_value / max_value, lowercase) so nothing needs remapping on submit.
 const newTestRow = () => ({
   id: Date.now() + Math.random(),
   test_label: '',
   test_point_unit: '',
   reference_value: '',
   actual_value: '',
-  MIN_value: '',
-  MAX_value: '',
-  result: 'auto', // 'auto' | 'Pass' | 'Fail'
+  min_value: '',
+  max_value: '',
 });
 
 // ─── Auto-compute pass/fail based on min and max ──────────────
@@ -26,15 +26,17 @@ function autoResult(actual, minVal, maxVal) {
 
 // ─── Individual test row component ───────────────────────────────────────
 function TestRow({ row, index, onChange, onRemove, canRemove }) {
-  const computedResult = row.result === 'auto'
-    ? autoResult(row.actual_value, row.MIN_value, row.MAX_value)
-    : row.result;
+  const computedResult = autoResult(row.actual_value, row.min_value, row.max_value);
 
+  // Deviation convention: reference_value - actual_value.
+  // This matches how deviation is stored throughout the existing historical
+  // data (e.g. reference 6, actual 5.9 -> deviation +0.1), so newly entered
+  // records score consistently with everything already in the database.
   const deviation = (() => {
     const r = parseFloat(row.reference_value);
     const a = parseFloat(row.actual_value);
     if (isNaN(r) || isNaN(a)) return '';
-    const d = a - r;
+    const d = r - a;
     return (d > 0 ? '+' : '') + d.toFixed(4).replace(/\.?0+$/, '');
   })();
 
@@ -70,21 +72,24 @@ function TestRow({ row, index, onChange, onRemove, canRemove }) {
             className="form-input"
             value={row.test_label}
             onChange={field('test_label')}
-            placeholder="e.g. Temperature Calibration"
+            placeholder="e.g. Temperature Accuracy Test"
             required
           />
         </div>
 
         {/* Unit */}
         <div className="tf">
-          <label className="form-label" htmlFor={`test-unit-${row.id}`}>Test Point Unit</label>
+          <label className="form-label" htmlFor={`test-unit-${row.id}`}>
+            Test Point Unit <span className="req">*</span>
+          </label>
           <input
             id={`test-unit-${row.id}`}
             type="text"
             className="form-input"
             value={row.test_point_unit}
             onChange={field('test_point_unit')}
-            placeholder="e.g. °C, %, RPM"
+            placeholder="e.g. mmHg, BPM"
+            required
           />
         </div>
 
@@ -131,8 +136,8 @@ function TestRow({ row, index, onChange, onRemove, canRemove }) {
             id={`test-min-${row.id}`}
             type="number" step="any"
             className="form-input"
-            value={row.MIN_value}
-            onChange={field('MIN_value')}
+            value={row.min_value}
+            onChange={field('min_value')}
             placeholder="0.00"
             required
           />
@@ -147,8 +152,8 @@ function TestRow({ row, index, onChange, onRemove, canRemove }) {
             id={`test-max-${row.id}`}
             type="number" step="any"
             className="form-input"
-            value={row.MAX_value}
-            onChange={field('MAX_value')}
+            value={row.max_value}
+            onChange={field('max_value')}
             placeholder="0.00"
             required
           />
@@ -165,26 +170,18 @@ function TestRow({ row, index, onChange, onRemove, canRemove }) {
           </div>
         </div>
 
-        {/* Result */}
+        {/* Result — always derived from Actual vs. MIN/MAX, shown read-only.
+            There's no column in the database to store a manually-overridden
+            per-test result, so this is purely informational as you type. */}
         <div className="tf">
-          <label className="form-label" htmlFor={`result-${row.id}`}>Result</label>
-          <div className="result-wrap">
-            <select
-              id={`result-${row.id}`}
-              className="form-select"
-              value={row.result}
-              onChange={field('result')}
-            >
-              <option value="auto">Auto-calculate</option>
-              <option value="Pass">Pass</option>
-              <option value="Fail">Fail</option>
-            </select>
-            {computedResult && (
-              <span className={`result-badge badge ${computedResult === 'Pass' ? 'badge-success' : 'badge-danger'}`}>
-                {computedResult}
-              </span>
-            )}
-          </div>
+          <label className="form-label">Result (auto)</label>
+          {computedResult ? (
+            <span className={`result-badge badge ${computedResult === 'Pass' ? 'badge-success' : 'badge-danger'}`}>
+              {computedResult}
+            </span>
+          ) : (
+            <span className="deviation-display">—</span>
+          )}
         </div>
       </div>
     </div>
@@ -193,6 +190,10 @@ function TestRow({ row, index, onChange, onRemove, canRemove }) {
 
 // ─── Main Form component ──────────────────────────────────────────────────
 export default function AddCalibrationForm() {
+  // Departments — loaded live from the database, not a hardcoded list
+  const [departments, setDepartments] = useState([]);
+  const [toleranceRules, setToleranceRules] = useState([]);
+
   // Device lookup state
   const [serialInput, setSerialInput]   = useState('');
   const [department, setDepartment]     = useState('');
@@ -200,25 +201,39 @@ export default function AddCalibrationForm() {
   const [deviceLoading, setDeviceLoading] = useState(false);
   const [deviceError, setDeviceError]   = useState('');
 
-  // Session metadata (Calibration_records)
+  // Session metadata (calibration_records)
   const [calibrationYear, setCalibrationYear] = useState(new Date().getFullYear().toString());
+  const [certificateNum, setCertificateNum]   = useState('');
   const [accessoryType, setAccessoryType]     = useState('');
   const [accessoryModel, setAccessoryModel]   = useState('');
   const [accessorySerial, setAccessorySerial] = useState('');
 
-  // Test rows (Calibration_measurements)
+  // Test rows (calibration_tests)
   const [tests, setTests] = useState([newTestRow()]);
 
   // Submission
   const [submitting, setSubmitting]   = useState(false);
   const [submitted, setSubmitted]     = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [savedSummary, setSavedSummary] = useState(null);
 
   // New Device Creation state
   const [isCreating, setIsCreating]         = useState(false);
+  const [creatingDevice, setCreatingDevice] = useState(false);
   const [newDeviceType, setNewDeviceType]   = useState('');
   const [newDeviceModel, setNewDeviceModel] = useState('');
   const [newDeviceMfr, setNewDeviceMfr]     = useState('');
+  const [newDeviceResolution, setNewDeviceResolution] = useState('');
+
+  useEffect(() => {
+    getDepartments()
+      .then(setDepartments)
+      .catch((err) => console.error('Failed to load departments:', err));
+
+    getToleranceRules()
+      .then(setToleranceRules)
+      .catch((err) => console.error('Failed to load tolerance rules:', err));
+  }, []);
 
   // ── Device lookup ────────────────────────────────────────────
   async function handleDeviceLookup(e) {
@@ -231,7 +246,7 @@ export default function AddCalibrationForm() {
     try {
       const dev = await getDevice(serialInput.trim());
       if (!dev) {
-        setDeviceError(`No device found for serial number "${serialInput}". Check the number and try again or add a new device.`);
+        setDeviceError(`No device found for serial number "${serialInput}". Check the number and try again, or add it as a new device below.`);
       } else {
         setDevice(dev);
         if (dev.department && !department) setDepartment(dev.department);
@@ -243,27 +258,65 @@ export default function AddCalibrationForm() {
     }
   }
 
-  function handleSaveNewDevice() {
-    if (!newDeviceType.trim() || !newDeviceModel.trim() || !newDeviceMfr.trim() || !department) {
-      setDeviceError('Please fill in all device fields (Department, Type, Model, Manufacturer).');
+  async function handleSaveNewDevice() {
+    if (!newDeviceType.trim() || !department) {
+      setDeviceError('Department Name and Device Type are required.');
       return;
     }
-    const newDev = {
-      serialNumber: serialInput.trim(),
-      department: department,
-      deviceType: newDeviceType.trim(),
-      model: newDeviceModel.trim(),
-      manufacturer: newDeviceMfr.trim(),
-    };
-    setDevice(newDev);
-    setIsCreating(false);
+    setCreatingDevice(true);
     setDeviceError('');
+    try {
+      const newDev = await createDevice({
+        serialNumber: serialInput.trim(),
+        department,
+        deviceType: newDeviceType.trim(),
+        model: newDeviceModel.trim() || null,
+        manufacturer: newDeviceMfr.trim() || null,
+        resolution: newDeviceResolution.trim() ? newDeviceResolution.trim() : null,
+      });
+      setDevice(newDev);
+      setIsCreating(false);
+    } catch (err) {
+      setDeviceError(err.message || 'Failed to create device. Please try again.');
+    } finally {
+      setCreatingDevice(false);
+    }
   }
 
   // ── Test row management ──────────────────────────────────────
   const handleTestChange = useCallback((id, field, value) => {
-    setTests((prev) => prev.map((t) => t.id === id ? { ...t, [field]: value } : t));
-  }, []);
+    setTests((prev) => prev.map((t) => {
+      if (t.id !== id) return t;
+      const updated = { ...t, [field]: value };
+
+      if (field === 'test_label' || field === 'reference_value') {
+        const labelVal = field === 'test_label' ? value : t.test_label;
+        const refValStr = field === 'reference_value' ? value : t.reference_value;
+        const labelToMatch = (labelVal || '').trim().toLowerCase();
+        const refVal = parseFloat(refValStr);
+
+        const rule = toleranceRules.find(r => r.test_label.trim().toLowerCase() === labelToMatch);
+        if (rule) {
+          if (rule.unit && !updated.test_point_unit) {
+            updated.test_point_unit = rule.unit;
+          }
+          if (!isNaN(refVal)) {
+            let min = 0, max = 0;
+            if (rule.tolerance_type === 'percentage') {
+              min = refVal * (1 - rule.tolerance_value / 100);
+              max = refVal * (1 + rule.tolerance_value / 100);
+            } else if (rule.tolerance_type === 'absolute') {
+              min = refVal - rule.tolerance_value;
+              max = refVal + rule.tolerance_value;
+            }
+            updated.min_value = parseFloat(min.toFixed(4)).toString();
+            updated.max_value = parseFloat(max.toFixed(4)).toString();
+          }
+        }
+      }
+      return updated;
+    }));
+  }, [toleranceRules]);
 
   function addTestRow() {
     setTests((prev) => [...prev, newTestRow()]);
@@ -284,19 +337,38 @@ export default function AddCalibrationForm() {
       setSubmitError('Please specify the calibration year.');
       return;
     }
-    if (tests.some((t) => !t.test_label.trim() || t.reference_value === '' || t.actual_value === '' || t.MIN_value === '' || t.MAX_value === '')) {
-      setSubmitError('Each test row must have a label, reference value, actual value, MIN value, and MAX value.');
+    if (tests.some((t) => !t.test_label.trim() || t.actual_value === '' || t.min_value === '' || t.max_value === '')) {
+      setSubmitError('Each test row must have a label, actual value, MIN value, and MAX value.');
       return;
     }
 
     setSubmitting(true);
     setSubmitError('');
 
-    // Mock API Call delay
-    await new Promise((r) => setTimeout(r, 900));
-
-    setSubmitting(false);
-    setSubmitted(true);
+    try {
+      const saved = await createCalibrationRecord({
+        serialNumber: device.serialNumber,
+        calibrationYear,
+        certificateNum,
+        accessoryType,
+        accessoryModel,
+        accessorySerial,
+        tests: tests.map((t) => ({
+          testLabel: t.test_label,
+          testPointUnit: t.test_point_unit,
+          referenceValue: t.reference_value,
+          actualValue: t.actual_value,
+          minValue: t.min_value,
+          maxValue: t.max_value,
+        })),
+      });
+      setSavedSummary(saved);
+      setSubmitted(true);
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to save calibration record. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleReset() {
@@ -304,6 +376,7 @@ export default function AddCalibrationForm() {
     setSerialInput('');
     setDepartment('');
     setCalibrationYear(new Date().getFullYear().toString());
+    setCertificateNum('');
     setAccessoryType('');
     setAccessoryModel('');
     setAccessorySerial('');
@@ -311,9 +384,11 @@ export default function AddCalibrationForm() {
     setNewDeviceType('');
     setNewDeviceModel('');
     setNewDeviceMfr('');
+    setNewDeviceResolution('');
     setTests([newTestRow()]);
     setSubmitted(false);
     setSubmitError('');
+    setSavedSummary(null);
   }
 
   // ─── Success screen ────────────────────────────────────────────
@@ -327,11 +402,12 @@ export default function AddCalibrationForm() {
           <h2>Record Saved</h2>
           <p>
             Calibration data for <strong>{device?.serialNumber}</strong> ({calibrationYear}) has been
-            recorded successfully with <strong>{tests.length} test{tests.length !== 1 ? 's' : ''}</strong>.
+            saved to the database with <strong>{savedSummary?.tests?.length ?? tests.length} test{(savedSummary?.tests?.length ?? tests.length) !== 1 ? 's' : ''}</strong>,
+            overall result <strong>{savedSummary?.result}</strong>.
           </p>
           <p className="success-note">
-            In this demo, the record is not persisted. The real implementation will
-            write to the database and update the device's control chart.
+            The device's control chart and calibration interval recommendation will update automatically
+            to include this new record the next time it's viewed.
           </p>
           <div className="success-actions">
             <button type="button" className="btn btn-primary" onClick={handleReset}>
@@ -368,7 +444,7 @@ export default function AddCalibrationForm() {
                   onChange={(e) => setDepartment(e.target.value)}
                 >
                   <option value="">Select department…</option>
-                  {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                  {departments.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
 
@@ -382,7 +458,7 @@ export default function AddCalibrationForm() {
                   className="form-input"
                   value={serialInput}
                   onChange={(e) => setSerialInput(e.target.value)}
-                  placeholder="e.g. SN-AND-001"
+                  placeholder="Enter the device serial number"
                   autoComplete="off"
                   spellCheck={false}
                   onKeyDown={(e) => e.key === 'Enter' && handleDeviceLookup(e)}
@@ -394,7 +470,7 @@ export default function AddCalibrationForm() {
                 <button
                   id="btn-lookup-device"
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-primary"
                   onClick={handleDeviceLookup}
                   disabled={deviceLoading || !serialInput.trim()}
                 >
@@ -405,14 +481,6 @@ export default function AddCalibrationForm() {
                 </button>
               </div>
             </div>
-
-            {/* Demo tip */}
-            <p className="lookup-tip">
-              Try:
-              {['SN-AND-001', 'SN-IVF-012', 'SN-BLD-007', 'SN-PATH-003', 'SN-OR-015'].map((s) => (
-                <code key={s} onClick={() => setSerialInput(s)} style={{ cursor: 'pointer' }}>{s}</code>
-              ))}
-            </p>
 
             {/* Device error / create prompt */}
             {deviceError && !isCreating && (
@@ -439,8 +507,8 @@ export default function AddCalibrationForm() {
                 </div>
                 <div className="device-found-grid" style={{ marginBottom: 14 }}>
                   <div className="tf">
-                    <label className="form-label">Device Type</label>
-                    <input type="text" className="form-input" value={newDeviceType} onChange={(e) => setNewDeviceType(e.target.value)} placeholder="e.g. Centrifuge" />
+                    <label className="form-label">Device Type <span className="req">*</span></label>
+                    <input type="text" className="form-input" value={newDeviceType} onChange={(e) => setNewDeviceType(e.target.value)} placeholder="e.g. Centrifuge" required />
                   </div>
                   <div className="tf">
                     <label className="form-label">Model</label>
@@ -450,10 +518,22 @@ export default function AddCalibrationForm() {
                     <label className="form-label">Manufacturer</label>
                     <input type="text" className="form-input" value={newDeviceMfr} onChange={(e) => setNewDeviceMfr(e.target.value)} placeholder="e.g. Eppendorf" />
                   </div>
+                  <div className="tf">
+                    <label className="form-label">Resolution</label>
+                    <input type="number" step="any" className="form-input" value={newDeviceResolution} onChange={(e) => setNewDeviceResolution(e.target.value)} placeholder="e.g. 0.1" />
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => setIsCreating(false)}>Cancel</button>
-                  <button type="button" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={handleSaveNewDevice}>Save & Continue</button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                    onClick={handleSaveNewDevice}
+                    disabled={creatingDevice}
+                  >
+                    {creatingDevice ? 'Saving…' : 'Save & Continue'}
+                  </button>
                 </div>
               </div>
             )}
@@ -468,8 +548,9 @@ export default function AddCalibrationForm() {
                   <DeviceField label="Serial Number"  value={device.serialNumber} />
                   <DeviceField label="Department Name"     value={device.department} />
                   <DeviceField label="Device Type"    value={device.deviceType} />
-                  <DeviceField label="Model"          value={device.model} />
-                  <DeviceField label="Manufacturer"   value={device.manufacturer} />
+                  <DeviceField label="Model"          value={device.model || '—'} />
+                  <DeviceField label="Manufacturer"   value={device.manufacturer || '—'} />
+                  <DeviceField label="Resolution"     value={device.resolution !== undefined && device.resolution !== null ? device.resolution : '—'} />
                 </div>
               </div>
             )}
@@ -482,7 +563,7 @@ export default function AddCalibrationForm() {
             <StepBadge n={2} />
             <div>
               <h2 className="add-cal-section-title">Calibration Session Details</h2>
-              <p className="add-cal-section-desc">Record the calibration year and any reference accessories used.</p>
+              <p className="add-cal-section-desc">Record the calibration year, certificate, and any reference accessory used.</p>
             </div>
           </div>
 
@@ -504,6 +585,20 @@ export default function AddCalibrationForm() {
               </div>
 
               <div className="tf">
+                <label htmlFor="cert-num" className="form-label">
+                  Certificate Number
+                </label>
+                <input
+                  id="cert-num"
+                  type="text"
+                  className="form-input"
+                  value={certificateNum}
+                  onChange={(e) => setCertificateNum(e.target.value)}
+                  placeholder="e.g. CERT-2026-0142"
+                />
+              </div>
+
+              <div className="tf">
                 <label htmlFor="acc-type" className="form-label">
                   Accessory Type
                 </label>
@@ -513,7 +608,7 @@ export default function AddCalibrationForm() {
                   className="form-input"
                   value={accessoryType}
                   onChange={(e) => setAccessoryType(e.target.value)}
-                  placeholder="e.g. NIST Traceable Thermometer"
+                  placeholder="e.g. Convex Probe (leave blank if none)"
                 />
               </div>
 
@@ -527,7 +622,7 @@ export default function AddCalibrationForm() {
                   className="form-input"
                   value={accessoryModel}
                   onChange={(e) => setAccessoryModel(e.target.value)}
-                  placeholder="e.g. Model X-200"
+                  placeholder="e.g. 3C5P"
                 />
               </div>
 
@@ -541,7 +636,7 @@ export default function AddCalibrationForm() {
                   className="form-input"
                   value={accessorySerial}
                   onChange={(e) => setAccessorySerial(e.target.value)}
-                  placeholder="e.g. SN-ACC-12345"
+                  placeholder="e.g. LRA5B149403"
                 />
               </div>
             </div>
@@ -555,7 +650,7 @@ export default function AddCalibrationForm() {
             <div>
               <h2 className="add-cal-section-title">Calibration Measurements</h2>
               <p className="add-cal-section-desc">
-                Enter one row per test performed. Result is automatically calculated based on MIN and MAX values.
+                Enter one row per test performed. Deviation and Result are calculated automatically.
               </p>
             </div>
           </div>

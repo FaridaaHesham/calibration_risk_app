@@ -9,9 +9,8 @@
 //       See also: backend/app/routers/risk.py
 // ============================================================
 
-import { useState } from 'react';
-import { DEPARTMENTS } from '../data/mockData';
-import { getDevice, getRiskData } from '../api/devices';
+import { useState, useEffect } from 'react';
+import { getDevice, getRiskData, getDepartments } from '../api/devices';
 import DeviceInfoCard from '../components/DeviceInfoCard';
 import RiskScorecard from '../components/RiskScorecard';
 import './RiskPage.css';
@@ -23,12 +22,19 @@ const SearchIcon = () => (
 );
 
 export default function RiskPage() {
+  const [departments, setDepartments] = useState([]);
   const [department, setDepartment] = useState('');
   const [serialInput, setSerialInput] = useState('');
   const [loading, setLoading]         = useState(false);
   const [notFound, setNotFound]       = useState(false);
   const [device, setDevice]           = useState(null);
   const [riskData, setRiskData]       = useState(null);
+
+  useEffect(() => {
+    getDepartments()
+      .then(setDepartments)
+      .catch((err) => console.error('Failed to load departments:', err));
+  }, []);
 
   async function handleSearch(e) {
     e.preventDefault();
@@ -93,7 +99,7 @@ export default function RiskPage() {
                 onChange={(e) => setDepartment(e.target.value)}
               >
                 <option value="">All departments</option>
-                {DEPARTMENTS.map((d) => (
+                {departments.map((d) => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
@@ -107,7 +113,7 @@ export default function RiskPage() {
                 className="form-input"
                 value={serialInput}
                 onChange={(e) => setSerialInput(e.target.value)}
-                placeholder="e.g. SN-IVF-012, SN-BLD-007…"
+                placeholder="Enter the device serial number"
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -127,13 +133,6 @@ export default function RiskPage() {
               </button>
             </div>
           </div>
-
-          <p className="risk-tip">
-            Try: <code onClick={() => setSerialInput('SN-IVF-012')}>SN-IVF-012</code>
-            <code onClick={() => setSerialInput('SN-BLD-007')}>SN-BLD-007</code>
-            <code onClick={() => setSerialInput('SN-AND-001')}>SN-AND-001</code>
-            <code onClick={() => setSerialInput('SN-OR-015')}>SN-OR-015</code>
-          </p>
         </form>
       </section>
 

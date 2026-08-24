@@ -1,10 +1,6 @@
 // src/components/RecommendationCard.jsx
 // Displays the recommended next calibration date and stability status.
-//
-// TODO: The `recommendation` prop is currently mock data.
-//       When the real statistical engine is implemented in the backend
-//       (see backend/app/routers/calibrations.py → get_chart_data),
-//       this component will receive real output and requires no code changes.
+// Driven by the statistical prediction engine output.
 
 import './RecommendationCard.css';
 
@@ -38,7 +34,7 @@ function CalendarIcon() {
 }
 
 /**
- * @param {{ recommendation: { stability, label, nextDate, intervalYears, message } }} props
+ * @param {{ recommendation: { stability, label, next_date, interval_years, message } }} props
  */
 export default function RecommendationCard({ recommendation }) {
   if (!recommendation) return null;
@@ -47,13 +43,13 @@ export default function RecommendationCard({ recommendation }) {
 
   const formattedDate = (() => {
     try {
-      return new Date(recommendation.nextDate).toLocaleDateString('en-GB', {
+      return new Date(recommendation.next_date).toLocaleDateString('en-GB', {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
       });
     } catch {
-      return recommendation.nextDate;
+      return recommendation.next_date;
     }
   })();
 
@@ -75,15 +71,10 @@ export default function RecommendationCard({ recommendation }) {
       <div className="rec-card-body">
         <div className="rec-card-date">{formattedDate}</div>
         <div className="rec-card-interval">
-          Every {recommendation.intervalYears} year{recommendation.intervalYears !== 1 ? 's' : ''}
+          Every {recommendation.interval_years} year{recommendation.interval_years !== 1 ? 's' : ''}
         </div>
         <p className="rec-card-message">{recommendation.message}</p>
       </div>
-
-      {/* TODO: Replace the above hardcoded values with results from the
-               real statistical calculation once the backend engine is ready.
-               The real engine should set recommendation.stability,
-               recommendation.nextDate, and recommendation.intervalYears. */}
     </div>
   );
 }

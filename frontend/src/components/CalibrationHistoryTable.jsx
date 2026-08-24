@@ -14,10 +14,24 @@ function getDeviationClass(deviation) {
   return 'dev-high';
 }
 
+/**
+ * Normalise a result string from the database (which may be stored as
+ * "pass"/"fail"/"Pass"/"Fail"/etc.) into the canonical display form.
+ */
+function normalizeResult(result) {
+  const r = (result || '').trim().toLowerCase();
+  if (r === 'pass') return 'Pass';
+  if (r === 'fail') return 'Fail';
+  return result || '—';
+}
+
 function ResultBadge({ result }) {
+  const isPass = (result || '').trim().toLowerCase() === 'pass';
+  const isFail = (result || '').trim().toLowerCase() === 'fail';
+  const display = isPass ? 'Pass' : isFail ? 'Fail' : (result || '—');
   return (
-    <span className={`badge ${result === 'Pass' ? 'badge-success' : 'badge-danger'}`}>
-      {result}
+    <span className={`badge ${isPass ? 'badge-success' : 'badge-danger'}`}>
+      {display}
     </span>
   );
 }
@@ -40,9 +54,24 @@ function ChevronIcon({ open }) {
 function YearRow({ session }) {
   const [open, setOpen] = useState(false);
 
-  const passCount = session.tests.filter((t) => t.result === 'Pass').length;
-  const failCount = session.tests.length - passCount;
-  const overallResult = failCount === 0 ? 'Pass' : 'Fail';
+  // Compute test results dynamically from actual/min/max — this is the
+  // source of truth, since it's derived directly from the measurements
+  // shown in the table rather than a separately-stored status string.
+  const computedTests = session.tests.map(t => {
+    const isPass = t.actual_value >= t.min_value && t.actual_value <= t.max_value;
+    return { ...t, result: isPass ? 'Pass' : 'Fail' };
+  });
+
+  const passCount = computedTests.filter(t => t.result === 'Pass').length;
+  const failCount = computedTests.length - passCount;
+
+  // Prefer the computed result (derived from the actual test rows we're
+  // displaying) since it can never disagree with what the user sees below.
+  // Only fall back to the stored session.result if there are no test rows
+  // to compute from, and normalise its casing either way.
+  const overallResult = computedTests.length > 0
+    ? (failCount === 0 ? 'Pass' : 'Fail')
+    : normalizeResult(session.result);
 
   return (
     <>
@@ -57,10 +86,10 @@ function YearRow({ session }) {
       >
         <td className="year-cell">
           <ChevronIcon open={open} />
-          <span className="year-label">{session.year}</span>
+          <span className="year-label">{session.calibration_year || '—'}</span>
         </td>
-        <td>{session.calibrationDate}</td>
-        <td>{session.technician}</td>
+        <td>{session.certificate_num || '—'}</td>
+        <td>{session.accessory_type || '—'}</td>
         <td className="col-num">
           {session.tests.length} test{session.tests.length !== 1 ? 's' : ''}
         </td>
@@ -95,30 +124,25 @@ function YearRow({ session }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {session.tests.map((test, i) => (
+                    {computedTests.map((test, i) => (
                       <tr key={i} className="sub-row">
-                        <td className="sub-test-label">{test.testLabel}</td>
-                        <td className="col-num sub-unit">{test.unit || '—'}</td>
-                        <td className="col-num">{test.referenceValue}</td>
-                        <td className="col-num">{test.actualValue}</td>
+                        <td className="sub-test-label">{test.test_label}</td>
+                        <td className="col-num sub-unit">{test.test_point_unit || '—'}</td>
+                        <td className="col-num">{test.reference_value}</td>
+                        <td className="col-num">{test.actual_value}</td>
                         <td className={`col-num ${getDeviationClass(test.deviation)}`}>
                           {Number(test.deviation) > 0 ? '+' : ''}{test.deviation}
                         </td>
-                        <td className="col-num">{test.tolerance}</td>
+                        <td className="col-num">[{test.min_value}, {test.max_value}]</td>
                         <td><ResultBadge result={test.result} /></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {session.notes && (
-                  <p className="session-notes">
-                    <strong>Notes:</strong> {session.notes}
-                  </p>
-                )}
-                {session.certificateNo && (
+                {session.accessory_model && (
                   <p className="session-cert">
-                    <strong>Certificate No.:</strong> {session.certificateNo}
-                    {session.equipment && <> &nbsp;|&nbsp; <strong>Equipment:</strong> {session.equipment}</>}
+                    <strong>Accessory Model:</strong> {session.accessory_model}
+                    {session.accessory_serial && <> &nbsp;|&nbsp; <strong>Serial:</strong> {session.accessory_serial}</>}
                   </p>
                 )}
               </div>
@@ -132,7 +156,7 @@ function YearRow({ session }) {
 
 /**
  * @param {{ records: Array }} props
- *   records — year-grouped array from MOCK_CALIBRATION_HISTORY
+ *   records — list of calibration_records from the backend API
  */
 export default function CalibrationHistoryTable({ records }) {
   if (!records?.length) {
@@ -154,8 +178,8 @@ export default function CalibrationHistoryTable({ records }) {
         <thead>
           <tr>
             <th scope="col">Year</th>
-            <th scope="col">Date</th>
-            <th scope="col">Technician</th>
+            <th scope="col">Certificate No.</th>
+            <th scope="col">Accessory Type</th>
             <th scope="col">Tests</th>
             <th scope="col">Summary</th>
             <th scope="col">Overall</th>
@@ -163,7 +187,7 @@ export default function CalibrationHistoryTable({ records }) {
         </thead>
         <tbody>
           {records.map((session) => (
-            <YearRow key={session.year} session={session} />
+            <YearRow key={session.id || session.calibration_year} session={session} />
           ))}
         </tbody>
       </table>

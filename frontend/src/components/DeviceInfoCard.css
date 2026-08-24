@@ -33,6 +33,17 @@
   gap: 0;
 }
 
+/* The edit form reuses .device-card-body for spacing but needs a normal
+   stacked layout, not the view-mode grid — the grid's auto-placement was
+   putting the field grid and the Cancel/Save row into separate grid
+   columns, and grid's default align-items: stretch is what turned the
+   buttons into full-height bars. */
+.device-card-body.edit-form {
+  display: flex;
+  flex-direction: column;
+  padding: 18px 22px 20px;
+}
+
 .device-info-row {
   display: flex;
   flex-direction: column;

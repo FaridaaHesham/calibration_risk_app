@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DEPARTMENTS } from '../data/mockData';
-import { getDevice, getCalibrationHistory, getChartData, getDevicesByPrediction } from '../api/devices';
+import { getDevice, getCalibrationHistory, getChartData, getDevicesByPrediction, getDepartments, updateDevice } from '../api/devices';
 import DeviceInfoCard from '../components/DeviceInfoCard';
 import ControlChart from '../components/ControlChart';
 import RecommendationCard from '../components/RecommendationCard';
@@ -15,6 +14,7 @@ const SearchIcon = () => (
 );
 
 export default function CalibrationPage() {
+  const [departments, setDepartments] = useState([]);
   const [department, setDepartment] = useState('');
   const [serialInput, setSerialInput] = useState('');
   const [loading, setLoading]        = useState(false);
@@ -22,6 +22,7 @@ export default function CalibrationPage() {
   const [device, setDevice]          = useState(null);
   const [chartData, setChartData]    = useState(null);
   const [history, setHistory]        = useState([]);
+  const [selectedAccessory, setSelectedAccessory] = useState('');
 
   // Prediction filter state
   const [selectedInterval, setSelectedInterval] = useState(null);
@@ -29,23 +30,60 @@ export default function CalibrationPage() {
   const [predDevices, setPredDevices]           = useState([]);
   const [predLoading, setPredLoading]           = useState(false);
   const [activeTab, setActiveTab]               = useState('direct'); // 'direct' | 'prediction' | 'add'
+  const [searchText, setSearchText]             = useState('');
+  const [searchInput, setSearchInput]           = useState(''); // raw text box value, committed on Search button click
+  const [hasSearched, setHasSearched]           = useState(false); // whether the user has clicked Search at least once
+
+  // Edit-device modal state (opened from the Search tab's results table)
+  const [editingDevice, setEditingDevice]       = useState(null); // full device object being edited, or null
+  const [editLoading, setEditLoading]           = useState(false); // fetching device details before opening modal
+  const [editSaving, setEditSaving]             = useState(false);
+  const [editError, setEditError]               = useState('');
+  const [editFields, setEditFields]             = useState({ department: '', deviceType: '', model: '', manufacturer: '', resolution: '' });
 
   useEffect(() => {
-    if (activeTab === 'prediction') {
-      handleFetchPredictions(selectedInterval, predStability);
-    }
-  }, [selectedInterval, predStability, activeTab]);
+    getDepartments()
+      .then(setDepartments)
+      .catch((err) => console.error('Failed to load departments:', err));
+  }, []);
 
-  async function handleFetchPredictions(interval, stability) {
+  // Reactive fetch: fires whenever the committed search text, filters, or tab changes.
+  // All values read inside the effect are listed in the dep array — no stale closures.
+  // A cancellation flag ensures that a slow earlier response can never overwrite the
+  // results of a faster later one (avoids race conditions on quick successive searches).
+  useEffect(() => {
+    if (activeTab !== 'prediction' || !hasSearched) return;
+
+    let cancelled = false;
+    setPredLoading(true);
+
+    getDevicesByPrediction(selectedInterval, predStability, searchText || null)
+      .then((results)  => { if (!cancelled) setPredDevices(results); })
+      .catch((err)     => { console.error('Failed to fetch predictions:', err); })
+      .finally(()      => { if (!cancelled) setPredLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [selectedInterval, predStability, activeTab, searchText, hasSearched]);
+
+  // Kept as a helper so handleSaveEdit can trigger a refresh after editing a device.
+  async function handleFetchPredictions(interval, stability, search) {
     setPredLoading(true);
     try {
-      const results = await getDevicesByPrediction(interval, stability);
+      const results = await getDevicesByPrediction(interval, stability, search);
       setPredDevices(results);
     } catch (err) {
       console.error('Failed to fetch predictions:', err);
     } finally {
       setPredLoading(false);
     }
+  }
+
+  // Commits the typed text into searchText state. The useEffect above reacts to
+  // that change and fires the fetch — no direct fetch call needed here.
+  function handlePredSearch(e) {
+    e.preventDefault();
+    setSearchText(searchInput.trim());
+    setHasSearched(true);
   }
 
   async function executeSearch(serial) {
@@ -69,6 +107,25 @@ export default function CalibrationPage() {
         setDevice(dev);
         setChartData(chart);
         setHistory(hist);
+
+        if (chart?.accessories) {
+          const keys = Object.keys(chart.accessories);
+          if (keys.length > 0) {
+            // Prefer "Main Device" if present; otherwise default to whichever
+            // accessory track has the longest history, so the page opens on
+            // the most complete, most meaningful chart rather than whatever
+            // key happened to come back first.
+            const defaultKey = keys.includes('Main Device')
+              ? 'Main Device'
+              : keys.reduce((best, key) =>
+                  (chart.accessories[key]?.points?.length || 0) >
+                  (chart.accessories[best]?.points?.length || 0)
+                    ? key
+                    : best
+                , keys[0]);
+            setSelectedAccessory(defaultKey);
+          }
+        }
       }
     } catch (err) {
       console.error('Search error:', err);
@@ -85,7 +142,73 @@ export default function CalibrationPage() {
 
   function handleSelectPredDevice(sn) {
     setSerialInput(sn);
+    setActiveTab('direct');
     executeSearch(sn);
+  }
+
+  // ── Edit-device modal (opened from the Search tab's results table) ──────
+  async function openEditModal(serialNumber) {
+    setEditError('');
+    setEditLoading(true);
+    try {
+      const dev = await getDevice(serialNumber);
+      if (!dev) {
+        setEditError(`Could not load device "${serialNumber}".`);
+        return;
+      }
+      setEditingDevice(dev);
+      setEditFields({
+        department: dev.department || '',
+        deviceType: dev.deviceType || '',
+        model: dev.model || '',
+        manufacturer: dev.manufacturer || '',
+        resolution: dev.resolution !== undefined && dev.resolution !== null ? dev.resolution.toString() : '',
+      });
+    } catch (err) {
+      setEditError(err.message || 'Failed to load device details.');
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
+  function closeEditModal() {
+    setEditingDevice(null);
+    setEditError('');
+  }
+
+  async function handleSaveEdit(e) {
+    e.preventDefault();
+    if (!editingDevice) return;
+    if (!editFields.deviceType.trim()) {
+      setEditError('Device Type is required.');
+      return;
+    }
+    setEditSaving(true);
+    setEditError('');
+    try {
+      const updated = await updateDevice(editingDevice.serialNumber, {
+        department_name: editFields.department.trim() || null,
+        device_type: editFields.deviceType.trim(),
+        model: editFields.model.trim() || null,
+        manufacturer: editFields.manufacturer.trim() || null,
+        resolution: editFields.resolution.trim() ? parseFloat(editFields.resolution.trim()) : null,
+      });
+
+      // Reflect the change in the Search tab's results table right away.
+      if (activeTab === 'prediction') {
+        handleFetchPredictions(selectedInterval, predStability, searchText);
+      }
+      // If the same device is currently open in the Direct Lookup view, sync it too.
+      if (device && device.serialNumber === updated.serialNumber) {
+        setDevice(updated);
+      }
+
+      closeEditModal();
+    } catch (err) {
+      setEditError(err.message || 'Failed to update device. Please try again.');
+    } finally {
+      setEditSaving(false);
+    }
   }
 
   const hasResults = Boolean(device);
@@ -95,7 +218,7 @@ export default function CalibrationPage() {
       {/* ─────────────────────────────────────────────────────────────
           Page Mode Toggle Bar
       ───────────────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 24, display: 'flex', gap: 10, alignItems: 'center' }}>
+      <div className="cal-tab-bar">
         <button
           type="button"
           className={`btn ${activeTab === 'direct' ? 'btn-primary' : 'btn-outline'}`}
@@ -139,6 +262,32 @@ export default function CalibrationPage() {
             Select a predicted interval to list all medical devices estimated for calibration within that timeframe.
           </p>
 
+            <form onSubmit={handlePredSearch} className="pred-search-row">
+              <div className="cal-field" style={{ flex: 1 }}>
+                <label htmlFor="pred-search-text" className="form-label">Search (serial, department, or type)</label>
+                <div className="pred-search-box" style={{ maxWidth: 'none' }}>
+                  <span className="pred-search-box-icon"><SearchIcon /></span>
+                  <input
+                    id="pred-search-text"
+                    type="text"
+                    className="form-input"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handlePredSearch(e); } }}
+                    placeholder="e.g. ICU, Ventilator, or a serial number"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </div>
+              </div>
+              <div className="cal-field cal-field--btn" style={{ justifyContent: 'flex-end' }}>
+                <label className="form-label" aria-hidden="true">&nbsp;</label>
+                <button type="submit" className="btn btn-primary" disabled={predLoading}>
+                  {predLoading ? <><div className="spinner" style={{ width: 15, height: 15, borderWidth: 2 }} />Searching…</> : <><SearchIcon />Search</>}
+                </button>
+              </div>
+            </form>
+
             <div className="pred-filter-bar">
               <span className="pred-filter-label">Filter by Prediction:</span>
               <button
@@ -150,15 +299,15 @@ export default function CalibrationPage() {
               </button>
               <button
                 type="button"
-                className={`pred-filter-btn ${selectedInterval === 2 ? 'active' : ''}`}
-                onClick={() => { setSelectedInterval(2); setPredStability(null); }}
+                className={`pred-filter-btn ${selectedInterval === 2 && predStability === 'stable' ? 'active' : ''}`}
+                onClick={() => { setSelectedInterval(2); setPredStability('stable'); }}
               >
                 Predict: 2 Years Interval (Stable)
               </button>
               <button
                 type="button"
-                className={`pred-filter-btn ${selectedInterval === 1 && predStability !== 'unstable' ? 'active' : ''}`}
-                onClick={() => { setSelectedInterval(1); setPredStability(null); }}
+                className={`pred-filter-btn ${selectedInterval === 1 && predStability === 'marginal' ? 'active' : ''}`}
+                onClick={() => { setSelectedInterval(1); setPredStability('marginal'); }}
               >
                 Predict: 1 Year Interval (Marginal)
               </button>
@@ -171,13 +320,17 @@ export default function CalibrationPage() {
               </button>
             </div>
 
-            {predLoading ? (
+            {!hasSearched ? (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
+                Enter a search term or choose a filter above, then click <strong>Search</strong> to view devices.
+              </div>
+            ) : predLoading ? (
               <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
                 Loading predicted devices...
               </div>
             ) : predDevices.length === 0 ? (
               <div style={{ padding: '16px 0', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
-                No devices match the selected prediction filter.
+                No devices match the selected filters.
               </div>
             ) : (
               <div style={{ overflowX: 'auto', marginTop: 10 }}>
@@ -207,14 +360,25 @@ export default function CalibrationPage() {
                         <td><strong>{dev.interval_years} {dev.interval_years === 1 ? 'Year' : 'Years'}</strong></td>
                         <td>{dev.next_date}</td>
                         <td>
-                          <button
-                            type="button"
-                            className="btn btn-outline"
-                            style={{ padding: '4px 10px', fontSize: '0.75rem' }}
-                            onClick={() => handleSelectPredDevice(dev.serial_number)}
-                          >
-                            View Details
-                          </button>
+                          <div className="pred-row-actions">
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                              onClick={() => handleSelectPredDevice(dev.serial_number)}
+                            >
+                              View Details
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                              onClick={() => openEditModal(dev.serial_number)}
+                              disabled={editLoading}
+                            >
+                              Edit
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -223,6 +387,87 @@ export default function CalibrationPage() {
               </div>
             )}
           </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          Edit Device Modal — reachable from the Search tab's results
+          table (Direct Serial Lookup edits inline via DeviceInfoCard).
+      ───────────────────────────────────────────────────────────── */}
+      {editingDevice && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit device"
+          className="edit-device-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) closeEditModal(); }}
+        >
+          <div className="card edit-device-modal">
+            <div className="edit-device-modal-header">
+              <h3>Edit Device — {editingDevice.serialNumber}</h3>
+              <button type="button" className="edit-device-modal-close" onClick={closeEditModal} aria-label="Close">✕</button>
+            </div>
+
+            <form onSubmit={handleSaveEdit}>
+              {editError && <div className="error-message" style={{ color: 'var(--danger)', fontSize: '0.8rem', marginBottom: 10 }}>{editError}</div>}
+
+              <div className="edit-device-grid">
+                <div className="tf">
+                  <label className="form-label">Serial Number</label>
+                  <input type="text" className="form-input" value={editingDevice.serialNumber} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
+                </div>
+                <div className="tf">
+                  <label className="form-label">Department</label>
+                  <input
+                    type="text" className="form-input"
+                    value={editFields.department}
+                    onChange={(e) => setEditFields((f) => ({ ...f, department: e.target.value }))}
+                  />
+                </div>
+                <div className="tf">
+                  <label className="form-label">Device Type <span style={{ color: 'var(--danger)' }}>*</span></label>
+                  <input
+                    type="text" className="form-input" required
+                    value={editFields.deviceType}
+                    onChange={(e) => setEditFields((f) => ({ ...f, deviceType: e.target.value }))}
+                  />
+                </div>
+                <div className="tf">
+                  <label className="form-label">Model</label>
+                  <input
+                    type="text" className="form-input"
+                    value={editFields.model}
+                    onChange={(e) => setEditFields((f) => ({ ...f, model: e.target.value }))}
+                  />
+                </div>
+                <div className="tf">
+                  <label className="form-label">Manufacturer</label>
+                  <input
+                    type="text" className="form-input"
+                    value={editFields.manufacturer}
+                    onChange={(e) => setEditFields((f) => ({ ...f, manufacturer: e.target.value }))}
+                  />
+                </div>
+                <div className="tf">
+                  <label className="form-label">Resolution</label>
+                  <input
+                    type="number" step="any" className="form-input"
+                    value={editFields.resolution}
+                    onChange={(e) => setEditFields((f) => ({ ...f, resolution: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="edit-device-actions">
+                <button type="button" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={closeEditModal} disabled={editSaving}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} disabled={editSaving}>
+                  {editSaving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* ─────────────────────────────────────────────────────────────
@@ -251,7 +496,7 @@ export default function CalibrationPage() {
                   onChange={(e) => setDepartment(e.target.value)}
                 >
                   <option value="">All departments</option>
-                  {DEPARTMENTS.map((d) => (
+                  {departments.map((d) => (
                     <option key={d} value={d}>{d}</option>
                   ))}
                 </select>
@@ -266,7 +511,7 @@ export default function CalibrationPage() {
                   className="form-input"
                   value={serialInput}
                   onChange={(e) => setSerialInput(e.target.value)}
-                  placeholder="e.g. SN-AND-001, SN-IVF-012, SN-BLD-007…"
+                  placeholder="Enter the device serial number"
                   autoComplete="off"
                   spellCheck={false}
                 />
@@ -286,14 +531,7 @@ export default function CalibrationPage() {
               </div>
             </div>
 
-            {/* Demo tip */}
-            <p className="cal-tip">
-              Try: <code onClick={() => { setSerialInput('SN-AND-001'); executeSearch('SN-AND-001'); }}>SN-AND-001</code>
-              <code onClick={() => { setSerialInput('SN-IVF-012'); executeSearch('SN-IVF-012'); }}>SN-IVF-012</code>
-              <code onClick={() => { setSerialInput('SN-BLD-007'); executeSearch('SN-BLD-007'); }}>SN-BLD-007</code>
-              <code onClick={() => { setSerialInput('SN-PATH-003'); executeSearch('SN-PATH-003'); }}>SN-PATH-003</code>
-              <code onClick={() => { setSerialInput('SN-OR-015'); executeSearch('SN-OR-015'); }}>SN-OR-015</code>
-            </p>
+
           </form>
           </section>
         </>
@@ -331,8 +569,8 @@ export default function CalibrationPage() {
             <div className="cal-section-header">
               <StepBadge n={3} />
               <div>
-                <h2 className="cal-section-title">Control Chart</h2>
-                <p className="cal-section-desc">Statistical process control chart with UCL, CL, and LCL reference lines.</p>
+                <h2 className="cal-section-title">Prediction Engine</h2>
+                <p className="cal-section-desc">Analysis of how close the device readings approach the failure limits over time.</p>
               </div>
             </div>
 
@@ -341,19 +579,32 @@ export default function CalibrationPage() {
               <div className="cal-chart-card card">
                 <div className="cal-chart-card-header">
                   <ChartIcon />
-                  <span>Calibration Measurements Over Time</span>
+                  <span>Closeness to Edge Score</span>
+
+                  {chartData?.accessories && Object.keys(chartData.accessories).length > 1 && (
+                    <select
+                      className="form-select"
+                      style={{ marginLeft: 'auto', padding: '2px 24px 2px 8px', width: 'auto', fontSize: '0.8125rem' }}
+                      value={selectedAccessory}
+                      onChange={(e) => setSelectedAccessory(e.target.value)}
+                    >
+                      {Object.keys(chartData.accessories).map(acc => (
+                        <option key={acc} value={acc}>{acc === 'Main Device' ? 'Base Unit (No Accessory)' : acc}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
-                {chartData?.points ? (
-                  <ControlChart data={chartData.points} />
+                {chartData?.accessories?.[selectedAccessory]?.points?.length > 0 ? (
+                  <ControlChart data={chartData.accessories[selectedAccessory].points} />
                 ) : (
                   <div className="empty-state"><p>No chart data available.</p></div>
                 )}
               </div>
 
               {/* Recommendation */}
-              {chartData?.recommendation && (
+              {chartData?.accessories?.[selectedAccessory]?.recommendation && (
                 <div className="cal-rec-col">
-                  <RecommendationCard recommendation={chartData.recommendation} />
+                  <RecommendationCard recommendation={chartData.accessories[selectedAccessory].recommendation} />
                 </div>
               )}
             </div>
