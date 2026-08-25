@@ -1,0 +1,432 @@
+/* src/pages/RiskReportPrint.css */
+
+.risk-print-container {
+  min-height: 100vh;
+  background-color: #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #0f172a;
+}
+
+.risk-print-loading,
+.risk-print-error {
+  background: white;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  max-width: 500px;
+  margin-top: 60px;
+}
+
+.risk-print-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.risk-print-actions {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.btn-print {
+  background-color: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.btn-print:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.btn-close {
+  background-color: #fff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-close:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+}
+
+/* Document Container */
+.risk-report-document {
+  background-color: #fff;
+  width: 210mm; /* A4 width */
+  min-height: 297mm; /* A4 height */
+  padding: 18mm 18mm;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 3px solid #1e3a8a;
+  padding-bottom: 14px;
+  margin-bottom: 20px;
+}
+
+.report-logo-container {
+  width: 75px;
+  flex-shrink: 0;
+}
+
+.report-logo {
+  max-width: 100%;
+  height: auto;
+}
+
+.report-header-titles {
+  text-align: center;
+  flex: 1;
+  padding: 0 10px;
+}
+
+.report-header-titles h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #1e3a8a;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.report-header-titles .sub-title {
+  margin: 2px 0 6px;
+  font-size: 0.85rem;
+  color: #475569;
+  font-weight: 600;
+}
+
+.report-header-titles h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.report-header-titles .arabic-sub {
+  margin: 3px 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+  direction: rtl;
+}
+
+.report-meta {
+  text-align: right;
+  font-size: 0.8rem;
+  color: #475569;
+  flex-shrink: 0;
+}
+
+.report-meta p {
+  margin: 3px 0;
+}
+
+/* Sections */
+.report-section {
+  margin-bottom: 18px;
+}
+
+.report-section-header {
+  background-color: #f1f5f9;
+  border-left: 4px solid #1e3a8a;
+  padding: 6px 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+  color: #1e293b;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-header-ar {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: normal;
+  direction: rtl;
+}
+
+/* Tables */
+.report-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.report-data-table th {
+  background-color: #f8fafc;
+  padding: 6px 8px;
+  text-align: left;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.report-data-table td {
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  line-height: 1.35;
+}
+
+.report-data-table td.lbl {
+  width: 20%;
+  color: #475569;
+  font-weight: 600;
+  background-color: #fafbfc;
+}
+
+.report-data-table td.val {
+  width: 30%;
+}
+
+.report-data-table td.highlight {
+  color: #1d4ed8;
+}
+
+.report-data-table td.arabic-text {
+  direction: rtl;
+}
+
+/* Risk Overview Card in Section 2 */
+.risk-score-overview {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.risk-badge-box {
+  flex: 1.3;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1.5px solid #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.risk-badge-box .badge-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+}
+
+.risk-badge-box .badge-class {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.risk-metric-cards {
+  flex: 2;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.metric-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 6px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.metric-box .m-val {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.metric-box .m-lbl {
+  font-size: 0.68rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.cal-risk-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.status-pass {
+  color: #16a34a;
+}
+
+.status-warn {
+  color: #d97706;
+}
+
+.status-fail {
+  color: #dc2626;
+}
+
+/* Protocol Cards */
+.protocol-blocks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.protocol-card {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-top: 3px solid #3b82f6;
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+
+.protocol-card h5 {
+  margin: 0 0 6px 0;
+  font-size: 0.8rem;
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.protocol-card p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #475569;
+  line-height: 1.35;
+}
+
+/* Recommendations */
+.recommendation-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.82rem;
+  color: #334155;
+}
+
+.recommendation-list li {
+  margin-bottom: 4px;
+  line-height: 1.35;
+}
+
+/* Signatures */
+.report-signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+  margin-bottom: 12px;
+}
+
+.sig-box {
+  width: 30%;
+  text-align: center;
+}
+
+.sig-line {
+  border-bottom: 1px solid #475569;
+  margin-bottom: 6px;
+  height: 32px;
+}
+
+.sig-title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.sig-sub {
+  margin: 2px 0 0;
+  font-size: 0.7rem;
+  color: #64748b;
+  direction: rtl;
+}
+
+/* Footer */
+.report-footer {
+  text-align: center;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.report-footer p {
+  margin: 2px 0;
+}
+
+/* ── Print Media Optimization ── */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 10mm;
+  }
+
+  body {
+    background-color: #fff;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .risk-print-container {
+    padding: 0;
+    background-color: #fff;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .risk-report-document {
+    box-shadow: none;
+    width: 100%;
+    min-height: auto;
+    padding: 0;
+    margin: 0;
+  }
+
+  .report-section {
+    break-inside: avoid;
+  }
+}

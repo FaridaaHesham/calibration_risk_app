@@ -1,0 +1,253 @@
+/* src/pages/CertificatePrint.css */
+
+.certificate-container {
+  min-height: 100vh;
+  background-color: #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.print-actions {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.btn-print {
+  background-color: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  transition: background-color 0.2s;
+}
+
+.btn-print:hover {
+  background-color: #1d4ed8;
+}
+
+.btn-close {
+  background-color: #fff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-close:hover {
+  background-color: #f8fafc;
+}
+
+/* Certificate Page Setup */
+.certificate-page {
+  background-color: #fff;
+  width: 210mm; /* A4 width */
+  min-height: 297mm; /* A4 height */
+  padding: 20mm;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+  box-sizing: border-box;
+  color: #0f172a;
+}
+
+.cert-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 3px solid #1e3a8a;
+  padding-bottom: 16px;
+  margin-bottom: 32px;
+}
+
+.cert-logo-container {
+  width: 80px;
+}
+
+.cert-logo {
+  max-width: 100%;
+  height: auto;
+}
+
+.cert-header-text {
+  text-align: center;
+  flex: 1;
+}
+
+.cert-header-text h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #1e3a8a;
+  letter-spacing: 0.05em;
+}
+
+.cert-header-text p {
+  margin: 4px 0;
+  font-size: 0.95rem;
+  color: #475569;
+}
+
+.cert-header-text h3 {
+  margin: 12px 0 0 0;
+  font-size: 1.25rem;
+  color: #0f172a;
+  text-decoration: underline;
+}
+
+.cert-meta {
+  text-align: right;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.cert-meta p {
+  margin: 4px 0;
+}
+
+/* Sections */
+.cert-section {
+  margin-bottom: 32px;
+}
+
+.cert-section-title {
+  background-color: #f8fafc;
+  border-left: 4px solid #2563eb;
+  padding: 8px 12px;
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin-bottom: 16px;
+  color: #1e293b;
+}
+
+/* Tables */
+.cert-info-table,
+.cert-results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.cert-info-table td {
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.cert-info-table td strong {
+  color: #475569;
+}
+
+.cert-results-table th {
+  background-color: #f1f5f9;
+  padding: 10px 8px;
+  text-align: left;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.cert-results-table td {
+  padding: 10px 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.status-pass {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.status-fail {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.status-pass.large,
+.status-fail.large {
+  font-size: 1.2rem;
+}
+
+/* Summary */
+.cert-summary {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 48px;
+}
+
+.summary-status {
+  background-color: #f8fafc;
+  border: 2px solid #e2e8f0;
+  padding: 16px 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 1.1rem;
+}
+
+/* Signatures */
+.cert-signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 64px;
+  margin-bottom: 32px;
+}
+
+.signature-box {
+  width: 40%;
+  text-align: center;
+}
+
+.sig-line {
+  border-bottom: 1px solid #0f172a;
+  margin-bottom: 8px;
+  height: 40px;
+}
+
+.signature-box p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+/* Footer */
+.cert-footer {
+  text-align: center;
+  margin-top: auto;
+  padding-top: 32px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+/* ── Print Media Query ── */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  body {
+    background-color: #fff;
+  }
+
+  .certificate-container {
+    padding: 0;
+    background-color: #fff;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .certificate-page {
+    box-shadow: none;
+    width: 100%;
+    margin: 0;
+  }
+}

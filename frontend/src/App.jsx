@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage         from './pages/LoginPage';
 import CalibrationPage   from './pages/CalibrationPage';
 import RiskPage          from './pages/RiskPage';
+import CertificatePrint  from './pages/CertificatePrint';
+import RiskReportPrint   from './pages/RiskReportPrint';
 import Layout            from './components/Layout';
 import './App.css';
 
@@ -29,6 +31,24 @@ export default function App() {
           <Route path="calibration"     element={<CalibrationPage />} />
           <Route path="risk"            element={<RiskPage />} />
         </Route>
+
+        <Route 
+          path="/print/certificate/:serialNumber/:recordId" 
+          element={
+            <ProtectedRoute>
+              <CertificatePrint />
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route 
+          path="/print/risk/:serialNumber" 
+          element={
+            <ProtectedRoute>
+              <RiskReportPrint />
+            </ProtectedRoute>
+          } 
+        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

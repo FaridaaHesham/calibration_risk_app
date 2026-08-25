@@ -11,22 +11,220 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models import Device, CalibrationRecord
+from app.models import Device, CalibrationRecord, EquipmentRiskConfig
 from app.schemas import (
     DeviceSchema, DeviceCreateRequest, DeviceUpdateRequest,
     PredictedDeviceSchema, DevicePredictionResponse, YearScorePoint,
+    AlertItemSchema, AlertsResponseSchema,
 )
 from app.prediction import build_year_scores, predict_calibration_interval, stability_from_rule
+from app.services.risk_service import calculate_calibration_risk_level, calculate_risk_class
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 _log = logging.getLogger(__name__)
+
+
+# -- Alerts Endpoint ---------------------------------------------------------
+
+@router.get("/alerts", response_model=AlertsResponseSchema)
+async def get_calibration_alerts(db: AsyncSession = Depends(get_db)):
+    """
+    Return all alerts:
+      1. High Risk Assessment (Class 3 Criticality)
+      2. High Calibration Risk (Failure Rate >10% or recent fail)
+      3. Overdue Calibrations (<0 days)
+      4. Due Soon Calibrations (<=30 days)
+    """
+    today = date.today()
+
+    # 1. Load all devices
+    res_devices = await db.execute(select(Device))
+    devices = res_devices.scalars().all()
+
+    # 2. Load calibration records with tests eagerly
+    recs_result = await db.execute(
+        select(CalibrationRecord)
+        .options(selectinload(CalibrationRecord.tests))
+        .order_by(CalibrationRecord.device_id, CalibrationRecord.calibration_year.desc())
+    )
+    all_records = recs_result.scalars().all()
+
+    records_by_device: dict[int, list[CalibrationRecord]] = {}
+    for rec in all_records:
+        records_by_device.setdefault(rec.device_id, []).append(rec)
+
+    # 3. Load risk assessment configs
+    configs_res = await db.execute(select(EquipmentRiskConfig))
+    configs_list = configs_res.scalars().all()
+    configs_map = {c.device_type.strip().lower(): c for c in configs_list}
+
+    overdue_list = []
+    due_soon_list = []
+    high_risk_assessment_list = []
+    high_cal_risk_list = []
+    all_alerts_dict: dict[str, AlertItemSchema] = {}
+
+    for device in devices:
+        c_type = (device.device_type or "").strip().lower()
+        c_cfg = configs_map.get(c_type)
+
+        records = records_by_device.get(device.id, [])
+        total_calibrations = len(records)
+        passed_calibrations = 0
+        failed_calibrations = 0
+        most_recent_status = "NO_RECORDS"
+
+        if records:
+            latest = records[0]
+            if latest.result and latest.result.upper() == "PASS":
+                most_recent_status = "PASS"
+            elif latest.result and latest.result.upper() == "FAIL":
+                most_recent_status = "FAIL"
+            else:
+                most_recent_status = latest.result or "UNKNOWN"
+
+        for r in records:
+            if r.result and r.result.upper() == "PASS":
+                passed_calibrations += 1
+            elif r.result and r.result.upper() == "FAIL":
+                failed_calibrations += 1
+
+        cal_failure_rate = (
+            round((failed_calibrations / total_calibrations) * 100.0, 2)
+            if total_calibrations > 0 else None
+        )
+        c_level = calculate_calibration_risk_level(cal_failure_rate)
+
+        # Dynamic Risk Scoring
+        min_req = c_cfg.minimum_required if (c_cfg and c_cfg.minimum_required) else 1
+        eq_count = c_cfg.equipment_count if (c_cfg and c_cfg.equipment_count) else 1
+        base_ratio = round(float(min_req) / max(float(eq_count), 1.0), 2)
+
+        if cal_failure_rate is not None:
+            fail_factor = 0.35 + (2.65 * (cal_failure_rate / 100.0))
+            dyn_prob_occ = round(max(0.10, base_ratio * fail_factor), 2)
+        else:
+            dyn_prob_occ = round(max(0.10, base_ratio * 0.50), 2)
+
+        p_risk = c_cfg.process_risk if c_cfg else 1
+        pat_risk = c_cfg.patient_risk if c_cfg else 1
+
+        dyn_equip_risk = round(p_risk * pat_risk * dyn_prob_occ, 2)
+        dyn_risk_pct = round(min(100.0, (dyn_equip_risk / 27.0) * 100.0), 2)
+        dyn_risk_class = calculate_risk_class(dyn_risk_pct)
+
+        # Interval Prediction
+        recs_asc = sorted(records, key=lambda r: r.calibration_year or 0)
+        last_year = recs_asc[-1].calibration_year if recs_asc else None
+
+        if not recs_asc:
+            iv = 1
+        else:
+            grouped: dict[str, list] = {}
+            for rec in recs_asc:
+                acc = (rec.accessory_type or "Main Device").strip()
+                vtests = [
+                    {"deviation": float(t.deviation), "min_value": float(t.min_value), "max_value": float(t.max_value)}
+                    for t in rec.tests
+                    if t.deviation is not None and t.min_value is not None and t.max_value is not None
+                ]
+                if vtests:
+                    grouped.setdefault(acc, []).append({"year": rec.calibration_year, "result": rec.result or "", "tests": vtests})
+            if not grouped:
+                iv = 1
+            else:
+                ys = build_year_scores(list(grouped.values())[0])
+                pred = predict_calibration_interval(ys)
+                iv = pred["interval_years"]
+
+        if last_year:
+            next_year = last_year + iv
+            target_d = date(next_year, 10, 15)
+            days_rem = (target_d - today).days
+            pred_date_str = f"{next_year}-10-15"
+        else:
+            days_rem = 365 * iv
+            pred_date_str = f"{today.year + iv}-10-15"
+
+        is_overdue = days_rem < 0
+        is_due_soon = 0 <= days_rem <= 30
+        is_high_risk_assess = dyn_risk_class == "CLASS_3"
+        is_high_cal_risk = c_level == "HIGH" or (cal_failure_rate is not None and cal_failure_rate > 10.0) or most_recent_status == "FAIL"
+
+        if is_overdue or is_due_soon or is_high_risk_assess or is_high_cal_risk:
+            # Determine primary status tag
+            if is_high_risk_assess:
+                primary_status = "HIGH_RISK_ASSESSMENT"
+                alert_msg = f"Class 3 Criticality ({dyn_risk_pct}% Risk)"
+            elif is_high_cal_risk:
+                primary_status = "HIGH_CAL_RISK"
+                alert_msg = f"High Cal Failure Rate ({cal_failure_rate}%)"
+            elif is_overdue:
+                primary_status = "OVERDUE"
+                alert_msg = f"Overdue by {abs(days_rem)} days"
+            else:
+                primary_status = "DUE_SOON"
+                alert_msg = f"Due in {days_rem} days"
+
+            item = AlertItemSchema(
+                serial_number=device.serial_number,
+                department=device.department_name,
+                device_type=device.device_type,
+                model=device.model,
+                status=primary_status,
+                days_remaining=days_rem,
+                predicted_date=pred_date_str,
+                risk_class=dyn_risk_class,
+                risk_percentage=dyn_risk_pct,
+                calibration_risk_level=c_level,
+                calibration_failure_rate=cal_failure_rate,
+                alert_type=primary_status,
+                alert_message=alert_msg,
+            )
+
+            if is_overdue:
+                overdue_list.append(item)
+            if is_due_soon:
+                due_soon_list.append(item)
+            if is_high_risk_assess:
+                high_risk_assessment_list.append(item)
+            if is_high_cal_risk:
+                high_cal_risk_list.append(item)
+
+            all_alerts_dict[device.serial_number] = item
+
+    # Sort all alerts prioritizing High Risk Assessment -> High Cal Risk -> Overdue -> Due Soon
+    def alert_priority(a: AlertItemSchema) -> int:
+        if a.risk_class == "CLASS_3" and a.calibration_risk_level == "HIGH":
+            return 0
+        if a.risk_class == "CLASS_3":
+            return 1
+        if a.calibration_risk_level == "HIGH":
+            return 2
+        if a.days_remaining < 0:
+            return 3
+        return 4
+
+    sorted_alerts = sorted(all_alerts_dict.values(), key=lambda a: (alert_priority(a), a.days_remaining))
+
+    return AlertsResponseSchema(
+        total_alerts=len(sorted_alerts),
+        overdue_count=len(overdue_list),
+        due_soon_count=len(due_soon_list),
+        high_risk_assessment_count=len(high_risk_assessment_list),
+        high_risk_calibration_count=len(high_cal_risk_list),
+        alerts=sorted_alerts,
+    )
+
 
 
 # -- Helpers -----------------------------------------------------------------
 
 def _next_calibration_date(interval_years: int) -> str:
     today = date.today()
-    return date(today.year + interval_years, today.month, today.day).isoformat()
+    # Next calibration month is scheduled for October (month 10)
+    day = min(today.day, 31)
+    return date(today.year + interval_years, 10, day).isoformat()
 
 
 def _device_to_schema(device: Device) -> DeviceSchema:

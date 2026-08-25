@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getDevice, getCalibrationHistory, getChartData, getDevicesByPrediction, getDepartments, updateDevice } from '../api/devices';
 import DeviceInfoCard from '../components/DeviceInfoCard';
 import ControlChart from '../components/ControlChart';
@@ -13,7 +14,24 @@ const SearchIcon = () => (
   </svg>
 );
 
+const UploadIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <polyline points="17 8 12 3 7 8"></polyline>
+    <line x1="12" y1="3" x2="12" y2="15"></line>
+  </svg>
+);
+
+const DownloadIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <polyline points="7 10 12 15 17 10"></polyline>
+    <line x1="12" y1="15" x2="12" y2="3"></line>
+  </svg>
+);
+
 export default function CalibrationPage() {
+  const [searchParams] = useSearchParams();
   const [departments, setDepartments] = useState([]);
   const [department, setDepartment] = useState('');
   const [serialInput, setSerialInput] = useState('');
@@ -46,6 +64,16 @@ export default function CalibrationPage() {
       .then(setDepartments)
       .catch((err) => console.error('Failed to load departments:', err));
   }, []);
+
+  useEffect(() => {
+    const query = searchParams.get('search') || searchParams.get('serial');
+    if (query) {
+      const serial = query.trim();
+      setSerialInput(serial);
+      setActiveTab('direct');
+      executeSearch(serial);
+    }
+  }, [searchParams]);
 
   // Reactive fetch: fires whenever the committed search text, filters, or tab changes.
   // All values read inside the effect are listed in the dep array — no stale closures.
@@ -213,6 +241,70 @@ export default function CalibrationPage() {
 
   const hasResults = Boolean(device);
 
+  // ── Export Calibration Report ─────────────────────────────────────────────
+  function downloadReport() {
+    const rows = [];
+    // Header row
+    rows.push([
+      'Serial Number', 'Department', 'Device Type', 'Model', 'Manufacturer',
+      'Calibration Year', 'Certificate No', 'Accessory Type',
+      'Test Label', 'Unit', 'Reference Value', 'Actual Value',
+      'Min Value', 'Max Value', 'Deviation', 'Result'
+    ].join(','));
+
+    if (history && history.length > 0 && device) {
+      history.forEach(record => {
+        if (record.tests && record.tests.length > 0) {
+          record.tests.forEach(test => {
+            rows.push([
+              device.serialNumber,
+              device.department || '',
+              device.deviceType || '',
+              device.model || '',
+              device.manufacturer || '',
+              record.calibration_year,
+              record.certificate_num || '',
+              record.accessory_type || 'Main Device',
+              test.test_label || '',
+              test.test_point_unit || '',
+              test.reference_value ?? '',
+              test.actual_value ?? '',
+              test.min_value ?? '',
+              test.max_value ?? '',
+              test.deviation ?? '',
+              test.result || ''
+            ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+          });
+        } else {
+          // Record with no tests
+          rows.push([
+            device.serialNumber,
+            device.department || '',
+            device.deviceType || '',
+            device.model || '',
+            device.manufacturer || '',
+            record.calibration_year,
+            record.certificate_num || '',
+            record.accessory_type || 'Main Device',
+            '', '', '', '', '', '', '', record.result || ''
+          ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+        }
+      });
+    }
+
+    const csvContent = rows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `calibration_report_${device?.serialNumber || 'all'}_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+
   return (
     <div className="cal-page">
       {/* ─────────────────────────────────────────────────────────────
@@ -242,6 +334,14 @@ export default function CalibrationPage() {
           style={{ fontSize: '0.8125rem' }}
         >
           Add Calibration Data
+        </button>
+        <button
+          type="button"
+          className="btn btn-outline"
+          onClick={downloadReport}
+          style={{ fontSize: '0.8125rem', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <DownloadIcon /> Export Report
         </button>
       </div>
 
@@ -620,7 +720,7 @@ export default function CalibrationPage() {
               </div>
             </div>
             <div className="card">
-              <CalibrationHistoryTable records={history} />
+              <CalibrationHistoryTable records={history} serialNumber={device.serial_number} />
             </div>
           </section>
         </>

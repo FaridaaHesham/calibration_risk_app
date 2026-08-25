@@ -1,9 +1,10 @@
-"""
-routers/calibrations.py — Calibration history and chart data from real DB.
-"""
 from datetime import date
+import io
+import csv
+import pandas as pd
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,7 @@ from app.schemas import (
     CalibrationRecordCreate,
     TestResultSchema,
     ChartDataResponse,
+    BulkImportResponse,
 )
 from app.prediction import build_year_scores, predict_calibration_interval, stability_from_rule
 
@@ -174,7 +176,9 @@ async def get_chart_data(serial_number: str, db: AsyncSession = Depends(get_db))
         stab_key, stab_label = stability_from_rule(prediction["rule"], latest_score)
 
         iv = prediction["interval_years"]
-        next_date = date(today.year + iv, today.month, today.day).isoformat()
+        # Next calibration month is scheduled for October (month 10)
+        day = min(today.day, 31)
+        next_date = date(today.year + iv, 10, day).isoformat()
 
         chart_points = [
             {"year": ys["year"], "score": ys["score"], "result": ys["result"]}
@@ -238,3 +242,143 @@ async def get_calibration_history(serial_number: str, db: AsyncSession = Depends
             ],
         ))
     return output
+
+
+@router.post("/bulk-upload", response_model=BulkImportResponse)
+async def bulk_upload_calibrations(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Parse an Excel (.xlsx) or CSV file and bulk-import calibration records, devices, and tests.
+    """
+    try:
+        contents = await file.read()
+        if file.filename.endswith(".csv"):
+            df = pd.read_csv(io.BytesIO(contents))
+        elif file.filename.endswith((".xlsx", ".xls")):
+            df = pd.read_excel(io.BytesIO(contents))
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file format. Please upload .csv or .xlsx")
+        
+        # Clean up column names: lowercase, strip, replace spaces with underscores
+        df.columns = [str(c).strip().lower().replace(" ", "_") for c in df.columns]
+        
+        # Required columns check
+        required_cols = {"serial_number", "device_type", "calibration_year", "test_label", "reference_value", "actual_value"}
+        if not required_cols.issubset(set(df.columns)):
+            missing = required_cols - set(df.columns)
+            return BulkImportResponse(
+                success=False, imported_devices=0, imported_records=0, imported_tests=0,
+                errors=[f"Missing required columns: {', '.join(missing)}"], message="Upload failed"
+            )
+
+        df = df.where(pd.notnull(df), None)
+        
+        # We process row by row, caching fetched devices and records
+        devices_cache = {}
+        records_cache = {}
+        
+        imported_devs = 0
+        imported_recs = 0
+        imported_tests = 0
+        errors = []
+
+        for idx, row in df.iterrows():
+            try:
+                sn = str(row["serial_number"]).strip()
+                if sn == "None" or not sn: continue
+                
+                dev_type = str(row["device_type"]).strip()
+                cal_year_raw = row.get("calibration_year")
+                if pd.isna(cal_year_raw): continue
+                cal_year = int(float(cal_year_raw))
+                
+                # Device
+                if sn not in devices_cache:
+                    dev_result = await db.execute(select(Device).where(Device.serial_number == sn))
+                    device = dev_result.scalar_one_or_none()
+                    if not device:
+                        device = Device(
+                            serial_number=sn,
+                            device_type=dev_type,
+                            department_name=str(row.get("department", "")) if pd.notna(row.get("department")) else None,
+                            model=str(row.get("model", "")) if pd.notna(row.get("model")) else None,
+                            manufacturer=str(row.get("manufacturer", "")) if pd.notna(row.get("manufacturer")) else None,
+                        )
+                        db.add(device)
+                        await db.flush()
+                        imported_devs += 1
+                    devices_cache[sn] = device
+                device = devices_cache[sn]
+
+                # Calibration Record
+                rec_key = f"{sn}_{cal_year}"
+                if rec_key not in records_cache:
+                    rec_result = await db.execute(
+                        select(CalibrationRecord)
+                        .where(CalibrationRecord.device_id == device.id, CalibrationRecord.calibration_year == cal_year)
+                    )
+                    record = rec_result.scalar_one_or_none()
+                    if not record:
+                        record = CalibrationRecord(
+                            device_id=device.id,
+                            calibration_year=cal_year,
+                            result=str(row.get("result", "Pass")) if pd.notna(row.get("result")) else "Pass",
+                            certificate_num=str(row.get("certificate_num", "")) if pd.notna(row.get("certificate_num")) else None,
+                        )
+                        db.add(record)
+                        await db.flush()
+                        imported_recs += 1
+                    records_cache[rec_key] = record
+                record = records_cache[rec_key]
+
+                # Test Result
+                ref_val_raw = row.get("reference_value")
+                act_val_raw = row.get("actual_value")
+                if pd.notna(ref_val_raw) and pd.notna(act_val_raw):
+                    ref_val = float(ref_val_raw)
+                    act_val = float(act_val_raw)
+                    test_label = str(row["test_label"]).strip()
+                    deviation = float(row.get("deviation", act_val - ref_val)) if pd.notna(row.get("deviation")) else (act_val - ref_val)
+                    
+                    min_val = float(row.get("min_value", ref_val * 0.95)) if pd.notna(row.get("min_value")) else (ref_val * 0.95)
+                    max_val = float(row.get("max_value", ref_val * 1.05)) if pd.notna(row.get("max_value")) else (ref_val * 1.05)
+                    
+                    # Avoid duplicates in same year record
+                    exist_test = await db.execute(
+                        select(CalibrationTest)
+                        .where(CalibrationTest.calibration_record_id == record.id, CalibrationTest.test_label == test_label)
+                    )
+                    if not exist_test.scalar_one_or_none():
+                        new_test = CalibrationTest(
+                            calibration_record_id=record.id,
+                            test_label=test_label,
+                            reference_value=ref_val,
+                            actual_value=act_val,
+                            deviation=deviation,
+                            min_value=min_val,
+                            max_value=max_val,
+                            test_point_unit=str(row.get("unit", "")) if pd.notna(row.get("unit")) else None
+                        )
+                        db.add(new_test)
+                        imported_tests += 1
+
+            except Exception as e:
+                errors.append(f"Row {idx+2}: {str(e)}")
+
+        await db.commit()
+        return BulkImportResponse(
+            success=True,
+            imported_devices=imported_devs,
+            imported_records=imported_recs,
+            imported_tests=imported_tests,
+            errors=errors[:10],
+            message=f"Successfully imported {imported_devs} devices, {imported_recs} records, and {imported_tests} tests."
+        )
+    except Exception as e:
+        await db.rollback()
+        return BulkImportResponse(
+            success=False, imported_devices=0, imported_records=0, imported_tests=0,
+            errors=[str(e)], message="Failed to process file."
+        )

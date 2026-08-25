@@ -51,7 +51,7 @@ function ChevronIcon({ open }) {
 }
 
 /** Single expandable year row + its child test sub-rows */
-function YearRow({ session }) {
+function YearRow({ session, serialNumber }) {
   const [open, setOpen] = useState(false);
 
   // Compute test results dynamically from actual/min/max — this is the
@@ -110,7 +110,12 @@ function YearRow({ session }) {
           {/* Sub-header */}
           <tr className="subheader-row">
             <td colSpan={6}>
-              <div className="subheader-inner">
+              <div className="subheader-inner" style={{ position: 'relative' }}>
+                <div style={{ position: 'absolute', right: '12px', top: '12px' }}>
+                  <a href={`/print/certificate/${serialNumber}/${session.id}`} target="_blank" rel="noopener noreferrer" className="btn-print-sm">
+                    Print Certificate
+                  </a>
+                </div>
                 <table className="sub-table">
                   <thead>
                     <tr>
@@ -155,10 +160,11 @@ function YearRow({ session }) {
 }
 
 /**
- * @param {{ records: Array }} props
+ * @param {{ records: Array, serialNumber: string }} props
  *   records — list of calibration_records from the backend API
+ *   serialNumber - device serial number
  */
-export default function CalibrationHistoryTable({ records }) {
+export default function CalibrationHistoryTable({ records, serialNumber }) {
   if (!records?.length) {
     return (
       <div className="empty-state">
@@ -187,7 +193,7 @@ export default function CalibrationHistoryTable({ records }) {
         </thead>
         <tbody>
           {records.map((session) => (
-            <YearRow key={session.id || session.calibration_year} session={session} />
+            <YearRow key={session.id || session.calibration_year} session={session} serialNumber={serialNumber} />
           ))}
         </tbody>
       </table>

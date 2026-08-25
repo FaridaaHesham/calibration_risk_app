@@ -1,0 +1,182 @@
+/* src/components/BulkImportModal.css */
+
+.bulk-import-modal {
+  max-width: 550px;
+  width: 100%;
+}
+
+.modal-desc {
+  color: #475569;
+  font-size: 0.9rem;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.template-download {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 10px 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-size: 0.85rem;
+}
+
+.template-download span {
+  color: #475569;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+/* Dropzone */
+.dropzone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  background-color: #f8fafc;
+  transition: all 0.2s ease;
+  margin-bottom: 20px;
+}
+
+.dropzone:hover {
+  border-color: #2563eb;
+  background-color: #eff6ff;
+}
+
+.dropzone.has-file {
+  border-style: solid;
+  border-color: #2563eb;
+  background-color: #eff6ff;
+  padding: 30px 20px;
+}
+
+.dropzone-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #64748b;
+}
+
+.dropzone-placeholder p {
+  margin: 0;
+}
+
+.dropzone-placeholder p strong {
+  color: #2563eb;
+}
+
+.file-types {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.file-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #1e293b;
+}
+
+.file-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  word-break: break-all;
+}
+
+.file-size {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+/* Result Box */
+.import-result {
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.result-success {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.result-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.result-header {
+  margin-bottom: 12px;
+}
+
+.result-header strong {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.result-success .result-header strong {
+  color: #16a34a;
+}
+
+.result-error .result-header strong {
+  color: #dc2626;
+}
+
+.result-header p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.result-stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0,0,0,0.05);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.stat span {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.result-errors {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #fecaca;
+  font-size: 0.85rem;
+  color: #991b1b;
+}
+
+.result-errors ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+}
