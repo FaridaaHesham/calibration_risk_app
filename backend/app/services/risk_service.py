@@ -217,15 +217,15 @@ async def compute_device_prediction_status(device: Device, db: AsyncSession) -> 
             rule = pred["rule"]
 
     if last_year:
-        last_cal_date = f"{last_year}-10-15"
+        last_cal_date = f"October {last_year}"
         next_year = last_year + predicted_iv
-        next_cal_date = f"{next_year}-10-15"
+        next_cal_date = f"October {next_year}"
         target_date = date(next_year, 10, 15)
         days_rem = (target_date - today).days
     else:
         last_cal_date = None
         next_year = today.year + predicted_iv
-        next_cal_date = f"{next_year}-10-15"
+        next_cal_date = f"October {next_year}"
         days_rem = 365 * predicted_iv
 
     if days_rem < 0:

@@ -43,11 +43,17 @@
   margin: 0;
 }
 
-/* ── User info ─────────────────────────────────────────────── */
+/* ── Header actions & User info ────────────────────────────── */
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
 .app-header-user {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .user-avatar {

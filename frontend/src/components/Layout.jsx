@@ -4,6 +4,7 @@
 
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import NotificationCenter from './NotificationCenter';
 import './Layout.css';
 
 const PAGE_TITLES = {
@@ -34,13 +35,16 @@ export default function Layout() {
           <div className="app-header-title">
             <h1 className="app-header-page">{pageTitle}</h1>
           </div>
-          <div className="app-header-user">
-            <div className="user-avatar" aria-hidden="true">
-              {user.name.charAt(0).toUpperCase()}
-            </div>
-            <div className="user-info">
-              <span className="user-name">{user.name}</span>
-              {user.role && <span className="user-role">{user.role}</span>}
+          <div className="app-header-actions">
+            <NotificationCenter />
+            <div className="app-header-user">
+              <div className="user-avatar" aria-hidden="true">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="user-info">
+                <span className="user-name">{user.name}</span>
+                {user.role && <span className="user-role">{user.role}</span>}
+              </div>
             </div>
           </div>
         </header>

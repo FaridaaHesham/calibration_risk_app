@@ -269,7 +269,7 @@ export default function RiskReportPrint() {
                 <td className="val">{calibration_risk.avg_deviation !== null ? calibration_risk.avg_deviation : 'N/A'}</td>
               </tr>
               <tr>
-                <td className="lbl">Predicted Calibration Date:</td>
+                <td className="lbl">Predicted Next Calibration:</td>
                 <td className="val"><strong>{calibration_prediction.predicted_next_calibration || 'Annual'}</strong></td>
                 <td className="lbl">Schedule Status:</td>
                 <td className="val">

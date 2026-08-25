@@ -387,7 +387,7 @@ class AuditLogSchema(BaseModel):
 # ---------------------------------------------------------------------------
 
 class AlertItemSchema(BaseModel):
-    serial_number: str
+    serial_number: Optional[str] = None
     department: Optional[str] = None
     device_type: Optional[str] = None
     model: Optional[str] = None

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
 import './NotificationCenter.css';
@@ -15,6 +15,12 @@ const ShieldAlert = () => (
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
     <line x1="12" y1="8" x2="12" y2="12"></line>
     <line x1="12" y1="16" x2="12.01" y2="16"></line>
+  </svg>
+);
+
+const CalRiskIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: '#ea580c' }}>
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
   </svg>
 );
 
@@ -43,7 +49,9 @@ export default function NotificationCenter() {
     high_risk_calibration_count: 0,
     alerts: [],
   });
-  const [activeTab, setActiveTab] = useState('ALL'); // 'ALL' | 'HIGH_RISK' | 'OVERDUE' | 'DUE_SOON'
+  // 'ALL' | 'ASSESSMENT_RISK' | 'CAL_RISK' | 'OVERDUE' | 'DUE_SOON'
+  const [activeTab, setActiveTab] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   const dropdownRef = useRef(null);
@@ -91,18 +99,36 @@ export default function NotificationCenter() {
     navigate(`/app/risk?search=${encodeURIComponent(serial)}`);
   };
 
-  const totalHighRisk = (alerts.high_risk_assessment_count || 0) + (alerts.high_risk_calibration_count || 0);
+  const filteredAlerts = useMemo(() => {
+    return (alerts.alerts || []).filter((alert) => {
+      // Tab filter
+      if (activeTab === 'ASSESSMENT_RISK') {
+        const isAssess = alert.risk_class === 'CLASS_3' || (alert.risk_percentage && alert.risk_percentage >= 60);
+        if (!isAssess) return false;
+      } else if (activeTab === 'CAL_RISK') {
+        const isCal = alert.calibration_risk_level === 'HIGH' || (alert.calibration_failure_rate && alert.calibration_failure_rate > 10) || alert.status === 'HIGH_CAL_RISK';
+        if (!isCal) return false;
+      } else if (activeTab === 'OVERDUE') {
+        if (alert.days_remaining >= 0) return false;
+      } else if (activeTab === 'DUE_SOON') {
+        if (alert.days_remaining < 0 || alert.days_remaining > 30) return false;
+      }
 
-  const filteredAlerts = alerts.alerts.filter((alert) => {
-    if (activeTab === 'HIGH_RISK') {
-      return alert.risk_class === 'CLASS_3' || alert.calibration_risk_level === 'HIGH';
-    }
-    if (activeTab === 'OVERDUE') return alert.days_remaining < 0;
-    if (activeTab === 'DUE_SOON') return alert.days_remaining >= 0 && alert.days_remaining <= 30;
-    return true;
-  });
+      // Search text filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchSerial = (alert.serial_number || '').toLowerCase().includes(q);
+        const matchDept = (alert.department || '').toLowerCase().includes(q);
+        const matchType = (alert.device_type || '').toLowerCase().includes(q);
+        const matchModel = (alert.model || '').toLowerCase().includes(q);
+        if (!matchSerial && !matchDept && !matchType && !matchModel) return false;
+      }
 
-  const hasUrgentAlerts = (alerts.overdue_count > 0) || (alerts.high_risk_assessment_count > 0);
+      return true;
+    });
+  }, [alerts, activeTab, searchQuery]);
+
+  const hasUrgentAlerts = (alerts.overdue_count > 0) || (alerts.high_risk_assessment_count > 0) || (alerts.high_risk_calibration_count > 0);
 
   return (
     <div className="notification-center" ref={dropdownRef}>
@@ -113,6 +139,7 @@ export default function NotificationCenter() {
           if (!open) fetchAlerts();
         }}
         aria-label={`Notifications${alerts.total_alerts > 0 ? ` (${alerts.total_alerts})` : ''}`}
+        title="Equipment Risk & Calibration Alerts"
       >
         <BellIcon />
         {alerts.total_alerts > 0 && (
@@ -125,12 +152,28 @@ export default function NotificationCenter() {
       {open && (
         <div className="notification-dropdown">
           <div className="dropdown-header">
-            <h3>Equipment Risk & Calibration Alerts</h3>
-            <div className="header-actions">
-              {loading && <span className="spinner-small" title="Syncing..."></span>}
-              <button className="btn-refresh-mini" onClick={fetchAlerts} title="Refresh Alerts">
-                ↻
-              </button>
+            <div className="header-title-row">
+              <h3>Equipment Risk & Calibration Alerts</h3>
+              <div className="header-actions">
+                {loading && <span className="spinner-small" title="Syncing..."></span>}
+                <button className="btn-refresh-mini" onClick={fetchAlerts} title="Refresh Alerts">
+                  ↻
+                </button>
+              </div>
+            </div>
+            
+            {/* Search within notifications */}
+            <div className="dropdown-search-box">
+              <input
+                type="text"
+                placeholder="Filter by serial, department, type..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="dropdown-search-input"
+              />
+              {searchQuery && (
+                <button className="clear-search-btn" onClick={() => setSearchQuery('')}>✕</button>
+              )}
             </div>
           </div>
 
@@ -143,16 +186,25 @@ export default function NotificationCenter() {
               <span className="tab-count">{alerts.total_alerts}</span>
             </button>
             <button
-              className={`tab high-risk-tab ${activeTab === 'HIGH_RISK' ? 'active' : ''}`}
-              onClick={() => setActiveTab('HIGH_RISK')}
-              title="High Risk Assessment & High Calibration Risk"
+              className={`tab assess-risk-tab ${activeTab === 'ASSESSMENT_RISK' ? 'active' : ''}`}
+              onClick={() => setActiveTab('ASSESSMENT_RISK')}
+              title="High Risk Assessment (Class 3 Criticality)"
             >
-              <span className="tab-label">High Risk</span>
-              <span className="tab-count">{totalHighRisk}</span>
+              <span className="tab-label">Assessment Risk</span>
+              <span className="tab-count">{alerts.high_risk_assessment_count || 0}</span>
+            </button>
+            <button
+              className={`tab cal-risk-tab ${activeTab === 'CAL_RISK' ? 'active' : ''}`}
+              onClick={() => setActiveTab('CAL_RISK')}
+              title="High Calibration Risk (High Failure Rate)"
+            >
+              <span className="tab-label">Cal Risk</span>
+              <span className="tab-count">{alerts.high_risk_calibration_count || 0}</span>
             </button>
             <button
               className={`tab overdue ${activeTab === 'OVERDUE' ? 'active' : ''}`}
               onClick={() => setActiveTab('OVERDUE')}
+              title="Overdue Calibrations"
             >
               <span className="tab-label">Overdue</span>
               <span className="tab-count">{alerts.overdue_count}</span>
@@ -160,6 +212,7 @@ export default function NotificationCenter() {
             <button
               className={`tab due-soon ${activeTab === 'DUE_SOON' ? 'active' : ''}`}
               onClick={() => setActiveTab('DUE_SOON')}
+              title="Due within 30 days"
             >
               <span className="tab-label">Due Soon</span>
               <span className="tab-count">{alerts.due_soon_count}</span>
@@ -174,24 +227,24 @@ export default function NotificationCenter() {
               </div>
             ) : filteredAlerts.length === 0 ? (
               <div className="no-alerts">
-                <p>✓ All equipment risk & calibrations are in normal range</p>
+                <p>✓ No devices matching current alert filter</p>
               </div>
             ) : (
               filteredAlerts.map((alert, idx) => {
-                const isHighRiskAssess = alert.risk_class === 'CLASS_3';
-                const isHighCal = alert.calibration_risk_level === 'HIGH';
+                const isHighRiskAssess = alert.risk_class === 'CLASS_3' || (alert.risk_percentage && alert.risk_percentage >= 60);
+                const isHighCal = alert.calibration_risk_level === 'HIGH' || (alert.calibration_failure_rate && alert.calibration_failure_rate > 10);
                 const isOverdue = alert.days_remaining < 0;
 
                 return (
                   <div
                     key={`${alert.serial_number}-${idx}`}
-                    className={`alert-item ${isHighRiskAssess ? 'is-high-risk' : isOverdue ? 'is-overdue' : 'is-due-soon'}`}
+                    className={`alert-item ${isHighRiskAssess ? 'is-high-risk' : isHighCal ? 'is-cal-risk' : isOverdue ? 'is-overdue' : 'is-due-soon'}`}
                     onClick={() => handleDeviceClick(alert.serial_number)}
                     role="button"
                     tabIndex={0}
                   >
                     <div className="alert-icon">
-                      {isHighRiskAssess ? <ShieldAlert /> : isOverdue ? <AlertTriangle /> : <ClockWarning />}
+                      {isHighRiskAssess ? <ShieldAlert /> : isHighCal ? <CalRiskIcon /> : isOverdue ? <AlertTriangle /> : <ClockWarning />}
                     </div>
                     <div className="alert-content">
                       <div className="alert-title">
@@ -201,10 +254,10 @@ export default function NotificationCenter() {
                       {/* Alert Tag Pills */}
                       <div className="alert-badges-row">
                         {isHighRiskAssess && (
-                          <span className="mini-badge badge-red">Class 3 High Risk</span>
+                          <span className="mini-badge badge-red">Class 3 Risk Assessment ({alert.risk_percentage || 0}%)</span>
                         )}
                         {isHighCal && (
-                          <span className="mini-badge badge-orange">High Cal Failure ({alert.calibration_failure_rate}%)</span>
+                          <span className="mini-badge badge-orange">High Cal Failure ({alert.calibration_failure_rate || 0}%)</span>
                         )}
                         {isOverdue && (
                           <span className="mini-badge badge-red">{Math.abs(alert.days_remaining)}d Overdue</span>
@@ -215,17 +268,17 @@ export default function NotificationCenter() {
                       </div>
 
                       <div className="alert-meta">
-                        {alert.department || 'No Dept'} · Next Due: {alert.predicted_date || 'N/A'}
+                        {alert.department || 'No Dept'} · <strong>Next Due: {alert.predicted_date || 'N/A'}</strong>
                       </div>
 
                       <div className="alert-quick-links">
                         <span className="quick-link cal-link" title="Open Calibration Page">
-                          Calibration →
+                          Calibration Record →
                         </span>
                         <button
                           className="quick-link risk-link-btn"
                           onClick={(e) => handleRiskClick(e, alert.serial_number)}
-                          title="Open Risk Details"
+                          title="Open Equipment Risk Details"
                         >
                           Risk Assessment ↗
                         </button>

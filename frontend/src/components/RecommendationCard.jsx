@@ -42,9 +42,13 @@ export default function RecommendationCard({ recommendation }) {
   const config = STABILITY_CONFIG[recommendation.stability] || STABILITY_CONFIG.marginal;
 
   const formattedDate = (() => {
+    if (!recommendation.next_date) return 'N/A';
     try {
-      return new Date(recommendation.next_date).toLocaleDateString('en-GB', {
-        day: 'numeric',
+      const d = new Date(recommendation.next_date);
+      if (isNaN(d.getTime())) {
+        return recommendation.next_date;
+      }
+      return d.toLocaleDateString('en-GB', {
         month: 'long',
         year: 'numeric',
       });

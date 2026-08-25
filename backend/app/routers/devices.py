@@ -141,14 +141,15 @@ async def get_calibration_alerts(db: AsyncSession = Depends(get_db)):
             next_year = last_year + iv
             target_d = date(next_year, 10, 15)
             days_rem = (target_d - today).days
-            pred_date_str = f"{next_year}-10-15"
+            pred_date_str = f"October {next_year}"
         else:
+            next_year = today.year + iv
             days_rem = 365 * iv
-            pred_date_str = f"{today.year + iv}-10-15"
+            pred_date_str = f"October {next_year}"
 
         is_overdue = days_rem < 0
         is_due_soon = 0 <= days_rem <= 30
-        is_high_risk_assess = dyn_risk_class == "CLASS_3"
+        is_high_risk_assess = dyn_risk_class == "CLASS_3" or dyn_risk_pct >= 60.0
         is_high_cal_risk = c_level == "HIGH" or (cal_failure_rate is not None and cal_failure_rate > 10.0) or most_recent_status == "FAIL"
 
         if is_overdue or is_due_soon or is_high_risk_assess or is_high_cal_risk:
@@ -191,7 +192,8 @@ async def get_calibration_alerts(db: AsyncSession = Depends(get_db)):
             if is_high_cal_risk:
                 high_cal_risk_list.append(item)
 
-            all_alerts_dict[device.serial_number] = item
+            dict_key = device.serial_number or f"DEV-{device.id}"
+            all_alerts_dict[dict_key] = item
 
     # Sort all alerts prioritizing High Risk Assessment -> High Cal Risk -> Overdue -> Due Soon
     def alert_priority(a: AlertItemSchema) -> int:
@@ -222,9 +224,8 @@ async def get_calibration_alerts(db: AsyncSession = Depends(get_db)):
 
 def _next_calibration_date(interval_years: int) -> str:
     today = date.today()
-    # Next calibration month is scheduled for October (month 10)
-    day = min(today.day, 31)
-    return date(today.year + interval_years, 10, day).isoformat()
+    # Next calibration month is scheduled for October (month and year only)
+    return f"October {today.year + interval_years}"
 
 
 def _device_to_schema(device: Device) -> DeviceSchema:

@@ -74,12 +74,19 @@
 }
 
 .dropdown-header {
-  padding: 12px 16px;
+  padding: 12px 14px;
   border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: #f8fafc;
+}
+
+.header-title-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #f8fafc;
+  width: 100%;
 }
 
 .dropdown-header h3 {
@@ -93,6 +100,45 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.dropdown-search-box {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-search-input {
+  width: 100%;
+  padding: 6px 28px 6px 10px;
+  font-size: 0.78rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.dropdown-search-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 2px;
+}
+
+.clear-search-btn:hover {
+  color: #475569;
 }
 
 .btn-refresh-mini {
@@ -129,18 +175,19 @@
   display: flex;
   border-bottom: 1px solid #e2e8f0;
   background: #f8fafc;
+  overflow-x: auto;
 }
 
 .tab {
   flex: 1;
   text-align: center;
-  padding: 9px 4px;
-  font-size: 0.74rem;
+  padding: 8px 4px;
+  font-size: 0.72rem;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -161,14 +208,24 @@
   background-color: #eff6ff;
 }
 
-.tab.high-risk-tab {
+.tab.assess-risk-tab {
   color: #b91c1c;
 }
 
-.tab.high-risk-tab.active {
+.tab.assess-risk-tab.active {
   color: #991b1b;
   border-bottom-color: #dc2626;
   background-color: #fef2f2;
+}
+
+.tab.cal-risk-tab {
+  color: #c2410c;
+}
+
+.tab.cal-risk-tab.active {
+  color: #9a3412;
+  border-bottom-color: #ea580c;
+  background-color: #fff7ed;
 }
 
 .tab.overdue {
@@ -258,6 +315,10 @@
 .is-high-risk .alert-icon,
 .is-overdue .alert-icon {
   background-color: #fef2f2;
+}
+
+.is-cal-risk .alert-icon {
+  background-color: #fff7ed;
 }
 
 .is-due-soon .alert-icon {

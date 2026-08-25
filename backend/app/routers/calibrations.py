@@ -176,9 +176,8 @@ async def get_chart_data(serial_number: str, db: AsyncSession = Depends(get_db))
         stab_key, stab_label = stability_from_rule(prediction["rule"], latest_score)
 
         iv = prediction["interval_years"]
-        # Next calibration month is scheduled for October (month 10)
-        day = min(today.day, 31)
-        next_date = date(today.year + iv, 10, day).isoformat()
+        # Next calibration month is scheduled for October (month and year only)
+        next_date = f"October {today.year + iv}"
 
         chart_points = [
             {"year": ys["year"], "score": ys["score"], "result": ys["result"]}

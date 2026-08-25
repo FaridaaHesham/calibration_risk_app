@@ -442,7 +442,7 @@ export default function CalibrationPage() {
                       <th>Device & Model</th>
                       <th>Stability Prediction</th>
                       <th>Predicted Interval</th>
-                      <th>Next Calibration Due</th>
+                      <th>Next Calibration Due (Month / Year)</th>
                       <th>Action</th>
                     </tr>
                   </thead>
