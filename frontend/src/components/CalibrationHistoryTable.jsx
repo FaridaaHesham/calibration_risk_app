@@ -110,22 +110,25 @@ function YearRow({ session, serialNumber }) {
           {/* Sub-header */}
           <tr className="subheader-row">
             <td colSpan={6}>
-              <div className="subheader-inner" style={{ position: 'relative' }}>
-                <div style={{ position: 'absolute', right: '12px', top: '12px' }}>
-                  <a href={`/print/certificate/${serialNumber}/${session.id}`} target="_blank" rel="noopener noreferrer" className="btn-print-sm">
+              <div className="subheader-inner">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingRight: '4px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    Detailed Measurements
+                  </span>
+                  <a href={`/print/certificate/${serialNumber}/${session.id}`} target="_blank" rel="noopener noreferrer" className="btn-print-sm" style={{ textDecoration: 'none' }}>
                     Print Certificate
                   </a>
                 </div>
                 <table className="sub-table">
                   <thead>
                     <tr>
-                      <th>Test Parameter</th>
-                      <th>Unit</th>
-                      <th>Reference</th>
-                      <th>Actual</th>
-                      <th>Deviation</th>
-                      <th>Tolerance</th>
-                      <th>Result</th>
+                      <th style={{ textAlign: 'left' }}>Test Parameter</th>
+                      <th className="col-num" style={{ textAlign: 'right' }}>Unit</th>
+                      <th className="col-num" style={{ textAlign: 'right' }}>Reference</th>
+                      <th className="col-num" style={{ textAlign: 'right' }}>Actual</th>
+                      <th className="col-num" style={{ textAlign: 'right' }}>Deviation</th>
+                      <th className="col-num" style={{ textAlign: 'right' }}>Tolerance</th>
+                      <th style={{ textAlign: 'left', paddingLeft: '14px' }}>Result</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -183,12 +186,12 @@ export default function CalibrationHistoryTable({ records, serialNumber }) {
       <table className="data-table cal-history-table" aria-label="Calibration history">
         <thead>
           <tr>
-            <th scope="col">Year</th>
-            <th scope="col">Certificate No.</th>
-            <th scope="col">Accessory Type</th>
-            <th scope="col">Tests</th>
-            <th scope="col">Summary</th>
-            <th scope="col">Overall</th>
+            <th scope="col" style={{ textAlign: 'left' }}>Year</th>
+            <th scope="col" style={{ textAlign: 'left' }}>Certificate No.</th>
+            <th scope="col" style={{ textAlign: 'left' }}>Accessory Type</th>
+            <th scope="col" className="col-num" style={{ textAlign: 'right' }}>Tests</th>
+            <th scope="col" style={{ textAlign: 'left' }}>Summary</th>
+            <th scope="col" style={{ textAlign: 'left' }}>Overall</th>
           </tr>
         </thead>
         <tbody>

@@ -182,7 +182,9 @@ class CalibrationRecordCreate(BaseModel):
 class ChartPointSchema(BaseModel):
     year: int
     score: float     # closeness-to-edge score used as the chart value
+    signed_score: Optional[float] = None
     result: str
+    signed_deviation: Optional[float] = None
 
 
 class CalibrationRecommendationSchema(BaseModel):
@@ -191,6 +193,7 @@ class CalibrationRecommendationSchema(BaseModel):
     next_date: str
     interval_years: int
     message: str
+    reasoning: Optional[str] = None
 
 
 class ChartDataResponse(BaseModel):

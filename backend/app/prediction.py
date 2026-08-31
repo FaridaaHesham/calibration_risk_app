@@ -102,6 +102,42 @@ def visit_score(tests: list[dict]) -> float:
     return WORST_CASE_WEIGHT * worst + (1 - WORST_CASE_WEIGHT) * average
 
 
+def avg_signed_deviation(tests: list[dict]) -> float | None:
+    """
+    Return the average signed deviation for a visit's tests.
+    Deviation convention: reference_value - actual_value
+      positive = reading is below the reference (under-reading)
+      negative = reading is above the reference (over-reading)
+    Returns None if no valid tests.
+    """
+    valid = [float(t["deviation"]) for t in tests if t.get("deviation") is not None]
+    if not valid:
+        return None
+    return sum(valid) / len(valid)
+
+
+def signed_visit_score(tests: list[dict]) -> float:
+    """
+    Return the visit closeness-to-edge score preserving direction (sign).
+    The sign is determined by the test with the largest absolute closeness-to-edge.
+    """
+    if not tests:
+        return 0.0
+    worst_test = None
+    max_score = -1.0
+    for t in tests:
+        score = closeness_to_edge(t.get("deviation", 0), t.get("min_value", 0), t.get("max_value", 0))
+        if score > max_score:
+            max_score = score
+            worst_test = t
+    
+    dev = worst_test.get("deviation", 0) if worst_test else 0.0
+    sign = -1.0 if dev < 0 else 1.0
+    
+    abs_score = visit_score(tests)
+    return abs_score * sign
+
+
 def build_year_scores(records: list[dict]) -> list[dict]:
     """
     Build the year-by-year score timeline for a device (or a single
@@ -116,7 +152,7 @@ def build_year_scores(records: list[dict]) -> list[dict]:
 
     Returns a list sorted by year:
         [
-          { "year": 2021, "score": 34.2, "result": "Pass" },
+          { "year": 2021, "score": 34.2, "signed_score": 34.2, "result": "Pass", "signed_deviation": 0.12 },
           ...
         ]
     If a year has multiple records (rare), the worst score is used.
@@ -126,97 +162,164 @@ def build_year_scores(records: list[dict]) -> list[dict]:
         year = rec.get("year")
         result = (rec.get("result") or "").strip()
         score = visit_score(rec.get("tests", []))
+        s_score = signed_visit_score(rec.get("tests", []))
+        signed_dev = avg_signed_deviation(rec.get("tests", []))
         if year is None:
             continue
         if year not in year_map or score > year_map[year]["score"]:
-            year_map[year] = {"year": year, "score": round(score, 2), "result": result}
+            year_map[year] = {
+                "year": year,
+                "score": round(score, 2),
+                "signed_score": round(s_score, 2),
+                "result": result,
+                "signed_deviation": round(signed_dev, 4) if signed_dev is not None else None,
+            }
 
     return sorted(year_map.values(), key=lambda x: x["year"])
 
 
-def predict_calibration_interval(year_scores: list[dict]) -> dict:
+def predict_calibration_interval(
+    year_scores: list[dict],
+    edge_warning_threshold: float | None = None,
+    min_trend_increase: float | None = None,
+) -> dict:
     """
     Apply prediction rules to a device's (or accessory track's) year-by-year
     score timeline.
 
     `year_scores` is the output of build_year_scores().
 
+    Optionally pass `edge_warning_threshold` and `min_trend_increase` to
+    override the module-level defaults (used by the configurable settings UI).
+
     Returns:
         {
           "interval_years": int,   # 1 or 2
           "rule": str,             # short identifier
-          "message": str,          # plain English explanation
+          "message": str,          # plain English short summary
+          "reasoning": str,        # detailed plain-language explanation
         }
     """
+    threshold = edge_warning_threshold if edge_warning_threshold is not None else EDGE_WARNING_THRESHOLD
+    trend_inc = min_trend_increase if min_trend_increase is not None else MIN_TREND_INCREASE
+
     n = len(year_scores)
 
     # Rule 4 — not enough history
     if n < 2:
+        msg = (
+            f"Only {n} calibration visit(s) on record. "
+            "At least 2 are needed to assess trends. Defaulting to 1-year interval."
+        )
+        reasoning = (
+            f"We only have {n} calibration record(s) for this device, which is not enough "
+            "to identify a trend or confirm consistent performance. "
+            "To be safe, we are recommending annual calibration until more data is available."
+        )
         return {
             "interval_years": 1,
             "rule": "not enough history",
-            "message": (
-                f"Only {n} calibration visit(s) on record. "
-                "At least 2 are needed to assess trends. Defaulting to 1-year interval."
-            ),
+            "message": msg,
+            "reasoning": reasoning,
         }
 
     latest = year_scores[-1]
     latest_score = latest["score"]
     latest_result = (latest["result"] or "").strip().lower()
+    scores = [y["score"] for y in year_scores]
+    years = [y["year"] for y in year_scores]
 
     # Rule 1 — latest visit failed
     if latest_result == "fail":
+        msg = (
+            f"The most recent calibration ({latest['year']}) recorded a Fail result. "
+            "Immediate annual recalibration is required."
+        )
+        reasoning = (
+            f"The calibration performed in {latest['year']} resulted in a Fail — meaning the device's "
+            "readings were outside the acceptable limits. A device that has failed calibration "
+            "must be recalibrated within 1 year to confirm it has been corrected and is "
+            "back within safe operating range."
+        )
         return {
             "interval_years": 1,
             "rule": "most recent calibration failed",
-            "message": (
-                f"The most recent calibration ({latest['year']}) recorded a Fail result. "
-                "Immediate annual recalibration is required."
-            ),
+            "message": msg,
+            "reasoning": reasoning,
         }
 
     # Rule 2 — latest score above warning threshold
-    if latest_score >= EDGE_WARNING_THRESHOLD:
+    if latest_score >= threshold:
+        msg = (
+            f"Most recent score ({latest_score:.1f}%) exceeds the "
+            f"{threshold:.0f}% warning threshold. "
+            "Annual calibration recommended."
+        )
+        reasoning = (
+            f"In the most recent calibration ({latest['year']}), the device's readings were "
+            f"{latest_score:.1f}% of the way toward the failure limit — above our {threshold:.0f}% "
+            "warning threshold. This means the device is getting close to the boundary of acceptable "
+            "performance. Annual calibration ensures we catch any further drift before it becomes "
+            "a problem."
+        )
         return {
             "interval_years": 1,
             "rule": "reading above warning threshold",
-            "message": (
-                f"Most recent score ({latest_score:.1f}%) exceeds the "
-                f"{EDGE_WARNING_THRESHOLD:.0f}% warning threshold. "
-                "Annual calibration recommended."
-            ),
+            "message": msg,
+            "reasoning": reasoning,
         }
 
     # Rule 3 — meaningfully trending upward for 2 consecutive years
-    scores = [y["score"] for y in year_scores]
     if (
         n >= 3
-        and (scores[-1] - scores[-2]) >= MIN_TREND_INCREASE
-        and (scores[-2] - scores[-3]) >= MIN_TREND_INCREASE
+        and (scores[-1] - scores[-2]) >= trend_inc
+        and (scores[-2] - scores[-3]) >= trend_inc
     ):
+        score_summary = " → ".join(
+            f"{years[i]}: {scores[i]:.1f}%" for i in range(-3, 0)
+        )
+        msg = (
+            f"Scores have risen meaningfully for 2 consecutive years "
+            f"({year_scores[-3]['year']}: {scores[-3]:.1f}% -> "
+            f"{year_scores[-2]['year']}: {scores[-2]:.1f}% -> "
+            f"{year_scores[-1]['year']}: {scores[-1]:.1f}%). "
+            "Upward drift detected — annual calibration recommended."
+        )
+        reasoning = (
+            f"Over the last 3 calibrations, this device's closeness-to-limit score has risen "
+            f"consistently: {score_summary}. Each year increased by more than {trend_inc:.0f} percentage "
+            "points, which indicates the device is gradually drifting toward its tolerance limits. "
+            "This kind of steady upward trend is an early warning sign of instrument drift. "
+            "Annual calibration is recommended to keep a close eye on this device and intervene "
+            "before it approaches the failure zone."
+        )
         return {
             "interval_years": 1,
             "rule": "trending upward for 2 consecutive years",
-            "message": (
-                f"Scores have risen meaningfully for 2 consecutive years "
-                f"({year_scores[-3]['year']}: {scores[-3]:.1f}% -> "
-                f"{year_scores[-2]['year']}: {scores[-2]:.1f}% -> "
-                f"{year_scores[-1]['year']}: {scores[-1]:.1f}%). "
-                "Upward drift detected — annual calibration recommended."
-            ),
+            "message": msg,
+            "reasoning": reasoning,
         }
 
-    # Rule 5 — 3+ visits, all comfortably below threshold
-    if n >= 3 and all(s < EDGE_WARNING_THRESHOLD for s in scores):
+    # Rule 5 — last 3 visits comfortably below threshold
+    if n >= 3 and all(s < threshold for s in scores[-3:]):
+        score_summary = ", ".join(f"{years[i]}: {scores[i]:.1f}%" for i in range(-3, 0))
+        msg = (
+            f"All {n} calibration visits recorded scores below "
+            f"{threshold:.0f}% (most recent: {latest_score:.1f}%). "
+            "Device is stable — 2-year calibration interval recommended."
+        )
+        reasoning = (
+            f"This device has a solid track record across all {n} calibrations on file "
+            f"({score_summary}). Every visit showed readings comfortably within the acceptable "
+            f"range — all below the {threshold:.0f}% warning threshold. There is no sign of "
+            "drift or deterioration. Based on this consistent stability, we are confident "
+            "that a 2-year calibration interval is safe and appropriate for this device."
+        )
         return {
             "interval_years": 2,
             "rule": "3+ years of stable readings",
-            "message": (
-                f"All {n} calibration visits recorded scores below "
-                f"{EDGE_WARNING_THRESHOLD:.0f}% (most recent: {latest_score:.1f}%). "
-                "Device is stable — 2-year calibration interval recommended."
-            ),
+            "message": msg,
+            "reasoning": reasoning,
         }
 
     # Rule 6 — default
@@ -226,6 +329,12 @@ def predict_calibration_interval(year_scores: list[dict]) -> dict:
         "message": (
             "Insufficient data to confirm extended stability. "
             "Defaulting to the safer 1-year calibration interval."
+        ),
+        "reasoning": (
+            f"With {n} calibrations on record, the data does not yet clearly show a stable "
+            "pattern or a worrying trend — but it is also not enough to confidently extend to "
+            "a 2-year interval. To be safe, annual calibration is recommended until the device "
+            "builds a longer consistent track record."
         ),
     }
 

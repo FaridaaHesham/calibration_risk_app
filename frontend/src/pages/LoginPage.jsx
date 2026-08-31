@@ -53,7 +53,7 @@ export default function LoginPage() {
 
         <div className="login-header">
           <h1 className="login-title">Welcome back</h1>
-          <p className="login-subtitle">Sign in to the Calibration Management System</p>
+          <p className="login-subtitle">Sign in to the Calibration-Risk Management System</p>
         </div>
 
         <form id="login-form" onSubmit={handleSubmit} noValidate>

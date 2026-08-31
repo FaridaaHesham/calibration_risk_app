@@ -3,6 +3,7 @@ import io
 import csv
 import pandas as pd
 from typing import Optional
+import calendar
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy import select
@@ -19,6 +20,7 @@ from app.schemas import (
     BulkImportResponse,
 )
 from app.prediction import build_year_scores, predict_calibration_interval, stability_from_rule
+from app.routers.settings import get_settings
 
 router = APIRouter(prefix="/api/calibrations", tags=["calibrations"])
 
@@ -36,6 +38,33 @@ async def _get_device_by_serial(serial_number: str, db: AsyncSession) -> Device:
     return device
 
 
+def _compute_overall_result(tests) -> str:
+    """
+    Single source of truth for a calibration session's overall Pass/Fail.
+
+    A session passes only if every one of its tests has an actual_value
+    within its own [min_value, max_value] tolerance band. Tests missing
+    min/max or actual values are ignored (can't be judged), matching the
+    frontend's CalibrationHistoryTable logic. A session with no judgeable
+    tests is left as "Pass" only in the sense that there's nothing to
+    fail — callers should treat that case as "unknown" if it matters.
+
+    IMPORTANT: this is the ONLY place overall result should be computed.
+    Do not accept a raw "result" value from spreadsheets or callers and
+    store it as-is — it silently drifts out of sync with the actual
+    measurements (this is what caused sessions to render as "Fail" on
+    the control chart while every individual test showed Pass).
+    """
+    judgeable = [
+        t for t in tests
+        if t.min_value is not None and t.max_value is not None and t.actual_value is not None
+    ]
+    if not judgeable:
+        return "Pass"
+    all_pass = all(t.min_value <= t.actual_value <= t.max_value for t in judgeable)
+    return "Pass" if all_pass else "Fail"
+
+
 @router.post("", response_model=CalibrationRecordSchema, status_code=status.HTTP_201_CREATED)
 async def create_calibration_record(payload: CalibrationRecordCreate, db: AsyncSession = Depends(get_db)):
     """
@@ -50,13 +79,10 @@ async def create_calibration_record(payload: CalibrationRecordCreate, db: AsyncS
             detail="At least one test measurement is required.",
         )
 
-    # If the caller didn't specify an overall result, derive it the same
-    # way the UI does everywhere else: pass only if every test's actual
-    # value falls within its own [min_value, max_value] range.
-    overall_result = payload.result
-    if not overall_result:
-        all_pass = all(t.min_value <= t.actual_value <= t.max_value for t in payload.tests)
-        overall_result = "Pass" if all_pass else "Fail"
+    # Always derive the overall result from the tests themselves — never
+    # trust a caller-supplied value, since that's how the stored result
+    # and the actual measurements drift apart (see _compute_overall_result).
+    overall_result = _compute_overall_result(payload.tests)
 
     record = CalibrationRecord(
         device_id=device.id,
@@ -141,6 +167,12 @@ async def get_chart_data(serial_number: str, db: AsyncSession = Depends(get_db))
     )
     records = recs_result.scalars().all()
 
+    # Load configurable settings (warning threshold, trend sensitivity, cal month)
+    settings = get_settings()
+    cal_month = settings.get("calibration_month", 10)
+    edge_threshold = settings.get("edge_warning_threshold", 75.0)
+    min_trend = settings.get("min_trend_increase", 10.0)
+
     # Group by accessory type
     grouped_records: dict[str, list[dict]] = {}
     for rec in records:
@@ -157,7 +189,6 @@ async def get_chart_data(serial_number: str, db: AsyncSession = Depends(get_db))
         if not valid_tests:
             # Skip records with no usable measurements instead of letting them
             # silently score as a "perfect" 0% (see visit_score()'s docstring).
-            # Same fix as in routers/devices.py — kept in sync deliberately.
             continue
         grouped_records.setdefault(acc_type, []).append({
             "year": rec.calibration_year,
@@ -166,21 +197,39 @@ async def get_chart_data(serial_number: str, db: AsyncSession = Depends(get_db))
         })
 
     accessories_out = {}
-    today = date.today()
 
     for acc_type, raw_records in grouped_records.items():
         year_scores = build_year_scores(raw_records)
-        prediction = predict_calibration_interval(year_scores)
+        prediction = predict_calibration_interval(
+            year_scores,
+            edge_warning_threshold=edge_threshold,
+            min_trend_increase=min_trend,
+        )
 
         latest_score = year_scores[-1]["score"] if year_scores else 0.0
         stab_key, stab_label = stability_from_rule(prediction["rule"], latest_score)
 
         iv = prediction["interval_years"]
-        # Next calibration month is scheduled for October (month and year only)
-        next_date = f"October {today.year + iv}"
+
+        # Use the last RECORDED calibration year as the anchor, not today's year.
+        # This is correct: if the last recorded calibration is 2025 and the interval
+        # is 1 year, the next calibration is due in October 2026 — NOT October 2027.
+        if year_scores:
+            last_cal_year = year_scores[-1]["year"]
+        else:
+            last_cal_year = date.today().year
+        next_year = last_cal_year + iv
+        month_name = calendar.month_name[cal_month]
+        next_date = f"{month_name} {next_year}"
 
         chart_points = [
-            {"year": ys["year"], "score": ys["score"], "result": ys["result"]}
+            {
+                "year": ys["year"],
+                "score": ys["score"],
+                "signed_score": ys.get("signed_score"),
+                "result": ys["result"],
+                "signed_deviation": ys.get("signed_deviation"),
+            }
             for ys in year_scores
         ]
 
@@ -190,6 +239,7 @@ async def get_chart_data(serial_number: str, db: AsyncSession = Depends(get_db))
             "next_date": next_date,
             "interval_years": iv,
             "message": prediction["message"],
+            "reasoning": prediction.get("reasoning", ""),
         }
 
         accessories_out[acc_type] = {
@@ -198,6 +248,7 @@ async def get_chart_data(serial_number: str, db: AsyncSession = Depends(get_db))
         }
 
     return ChartDataResponse(accessories=accessories_out)
+
 
 
 @router.get("/{serial_number:path}", response_model=list[CalibrationRecordSchema])
@@ -320,10 +371,14 @@ async def bulk_upload_calibrations(
                     )
                     record = rec_result.scalar_one_or_none()
                     if not record:
+                        # Don't trust a "result" column from the spreadsheet here —
+                        # at this point we've only seen ONE row (one test) for this
+                        # record, so we can't yet know the true overall result.
+                        # It gets computed properly from all of the record's tests
+                        # in the recompute pass below, once every row is in.
                         record = CalibrationRecord(
                             device_id=device.id,
                             calibration_year=cal_year,
-                            result=str(row.get("result", "Pass")) if pd.notna(row.get("result")) else "Pass",
                             certificate_num=str(row.get("certificate_num", "")) if pd.notna(row.get("certificate_num")) else None,
                         )
                         db.add(record)
@@ -366,6 +421,18 @@ async def bulk_upload_calibrations(
             except Exception as e:
                 errors.append(f"Row {idx+2}: {str(e)}")
 
+        # Now that every row has been read, each touched record has its full
+        # set of tests in the session (flush so newly-added CalibrationTest
+        # rows are visible to the query below). Recompute overall result from
+        # ALL of the record's tests — including any that already existed in
+        # the DB before this upload — so it can never drift from reality.
+        await db.flush()
+        for record in records_cache.values():
+            tests_result = await db.execute(
+                select(CalibrationTest).where(CalibrationTest.calibration_record_id == record.id)
+            )
+            record.result = _compute_overall_result(tests_result.scalars().all())
+
         await db.commit()
         return BulkImportResponse(
             success=True,
@@ -380,4 +447,4 @@ async def bulk_upload_calibrations(
         return BulkImportResponse(
             success=False, imported_devices=0, imported_records=0, imported_tests=0,
             errors=[str(e)], message="Failed to process file."
-        )
+        )

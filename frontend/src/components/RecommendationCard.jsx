@@ -78,6 +78,15 @@ export default function RecommendationCard({ recommendation }) {
           Every {recommendation.interval_years} year{recommendation.interval_years !== 1 ? 's' : ''}
         </div>
         <p className="rec-card-message">{recommendation.message}</p>
+
+        {recommendation.reasoning && (
+          <div className="rec-card-reasoning-wrap" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(0,0,0,0.08)', textAlign: 'left' }}>
+            <h4 style={{ margin: '0 0 6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>Why this recommendation?</h4>
+            <p style={{ margin: 0, fontSize: '0.78rem', lineHeight: 1.45, color: 'var(--text-secondary)' }}>
+              {recommendation.reasoning}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

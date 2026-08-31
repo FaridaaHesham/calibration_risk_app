@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import auth, devices, calibrations, risk, tolerances, users
+from app.routers.settings import router as settings_router
 
 app = FastAPI(
     title="Adam International Hospital — Calibration & Risk API",
@@ -47,6 +48,7 @@ app.include_router(devices.router)
 app.include_router(calibrations.router)
 app.include_router(risk.router)
 app.include_router(tolerances.router)
+app.include_router(settings_router)
 
 
 @app.get("/", tags=["health"])

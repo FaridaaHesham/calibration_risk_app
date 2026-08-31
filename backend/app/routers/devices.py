@@ -1,17 +1,18 @@
 """
 routers/devices.py — Device endpoints backed by real Postgres queries.
 """
+import calendar
 import logging
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, or_, func, distinct
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models import Device, CalibrationRecord, EquipmentRiskConfig
+from app.models import Device, CalibrationRecord, CalibrationTest, EquipmentRiskConfig
 from app.schemas import (
     DeviceSchema, DeviceCreateRequest, DeviceUpdateRequest,
     PredictedDeviceSchema, DevicePredictionResponse, YearScorePoint,
@@ -19,6 +20,7 @@ from app.schemas import (
 )
 from app.prediction import build_year_scores, predict_calibration_interval, stability_from_rule
 from app.services.risk_service import calculate_calibration_risk_level, calculate_risk_class
+from app.routers.settings import get_settings
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 _log = logging.getLogger(__name__)
@@ -222,10 +224,20 @@ async def get_calibration_alerts(db: AsyncSession = Depends(get_db)):
 
 # -- Helpers -----------------------------------------------------------------
 
-def _next_calibration_date(interval_years: int) -> str:
-    today = date.today()
-    # Next calibration month is scheduled for October (month and year only)
-    return f"October {today.year + interval_years}"
+
+def _next_calibration_date(interval_years: int, last_cal_year: int | None = None) -> str:
+    """
+    Compute the next calibration date string (e.g. 'October 2026').
+    Uses the last recorded calibration year as the anchor so that a device
+    whose most recent calibration was in 2025 with a 1-year interval gets
+    'October 2026', not 'October 2027' (which would be wrong if the current
+    year's calibration hasn't happened yet).
+    """
+    settings = get_settings()
+    cal_month = settings.get("calibration_month", 10)
+    month_name = calendar.month_name[cal_month]
+    anchor = last_cal_year if last_cal_year is not None else date.today().year
+    return f"{month_name} {anchor + interval_years}"
 
 
 def _device_to_schema(device: Device) -> DeviceSchema:
@@ -418,6 +430,9 @@ async def get_devices_by_prediction(
         stab, label = stability_from_rule(prediction["rule"], latest_score)
         iv = prediction["interval_years"]
 
+        # Use the last recorded calibration year so the date is anchored correctly.
+        last_cal_year = year_scores[-1]["year"] if year_scores else None
+
         # Apply interval / stability filters before appending (skip mismatches early).
         if interval_years is not None and iv != interval_years:
             continue
@@ -433,11 +448,34 @@ async def get_devices_by_prediction(
             stability=stab,
             label=label,
             interval_years=iv,
-            next_date=_next_calibration_date(iv),
+            next_date=_next_calibration_date(iv, last_cal_year),
             message=prediction["message"],
         ))
 
     return output
+
+
+@router.get("/{serial_number:path}/test-labels", response_model=list[str])
+async def get_device_test_labels(serial_number: str, db: AsyncSession = Depends(get_db)):
+    """
+    Return the distinct test labels historically used for a device,
+    ordered alphabetically. Used by the Add Calibration form to pre-populate
+    the test-label dropdown when a device is selected.
+    """
+    device = await _get_device_or_404(serial_number, db)
+
+    result = await db.execute(
+        select(distinct(CalibrationTest.test_label))
+        .join(CalibrationRecord, CalibrationTest.calibration_record_id == CalibrationRecord.id)
+        .where(
+            CalibrationRecord.device_id == device.id,
+            CalibrationTest.test_label.isnot(None),
+            CalibrationTest.test_label != "",
+        )
+        .order_by(CalibrationTest.test_label)
+    )
+    labels = [row[0] for row in result.all() if row[0]]
+    return labels
 
 
 @router.get("/{serial_number:path}/prediction", response_model=DevicePredictionResponse)
