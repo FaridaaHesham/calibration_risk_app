@@ -20,7 +20,7 @@ from app.services.risk_service import (
     get_risk_dashboard_summary,
     get_device_risk_summary,
     get_equipment_risk_config_for_type,
-    calculate_equipment_risk_values,
+    calculate_excel_risk,
 )
 from datetime import date
 
@@ -31,7 +31,7 @@ router = APIRouter(prefix="/api/risk", tags=["risk"])
 async def get_risk_dashboard(db: AsyncSession = Depends(get_db)):
     """
     Return overall risk statistics, risk distributions, and per-device risk summaries
-    for the Risk Assessment Dashboard.
+    for the Risk Assessment Dashboard based on Excel deterministic risk calculation.
     """
     return await get_risk_dashboard_summary(db)
 
@@ -40,7 +40,7 @@ async def get_risk_dashboard(db: AsyncSession = Depends(get_db)):
 async def get_device_risk_details(serial_number: str, db: AsyncSession = Depends(get_db)):
     """
     Return comprehensive risk analysis for a specific device by serial number:
-      - Equipment Risk (Process Risk, Patient Risk, Risk Percentage, Risk Class)
+      - Equipment Risk (Process Risk, Patient Risk, Occurrence Value, Normalized Probability, Risk Percentage, Risk Class)
       - Calibration Performance (Pass/Fail counts, Failure Rate, Calibration Risk Level)
       - Test-Level Statistics (Pass/Fail tests, Max/Average deviation)
       - Calibration Prediction Status (Days remaining, Overdue/Due Soon status)
@@ -76,7 +76,7 @@ async def list_risk_assessments(db: AsyncSession = Depends(get_db)):
 
 @router.post("/assessment", response_model=EquipmentRiskConfigSchema, status_code=status.HTTP_201_CREATED)
 async def create_risk_assessment(payload: EquipmentRiskConfigCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new equipment risk assessment configuration."""
+    """Create a new equipment risk assessment configuration with Excel risk formulas."""
     existing = await get_equipment_risk_config_for_type(payload.device_type, db)
     if existing and existing.device_type.lower() == payload.device_type.lower():
         raise HTTPException(
@@ -84,24 +84,37 @@ async def create_risk_assessment(payload: EquipmentRiskConfigCreate, db: AsyncSe
             detail=f"Risk assessment configuration for '{payload.device_type}' already exists.",
         )
 
-    prob, equip_risk, risk_pct, risk_cls = calculate_equipment_risk_values(
-        payload.process_risk,
-        payload.patient_risk,
-        payload.equipment_count,
-        payload.minimum_required,
-    )
+    if payload.equipment_count <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Equipment count must be greater than zero.",
+        )
+
+    try:
+        calc = calculate_excel_risk(
+            equipment_category=payload.equipment_category,
+            process_risk=payload.process_risk,
+            patient_risk=payload.patient_risk,
+            occurrence_value=payload.occurrence_value,
+            equipment_count=payload.equipment_count,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
     config = EquipmentRiskConfig(
         device_type=payload.device_type,
         arabic_name=payload.arabic_name,
+        equipment_category=payload.equipment_category,
         process_risk=payload.process_risk,
         patient_risk=payload.patient_risk,
         minimum_required=payload.minimum_required,
         equipment_count=payload.equipment_count,
-        probability_occurrence=prob,
-        equipment_risk=equip_risk,
-        risk_percentage=risk_pct,
-        risk_class=risk_cls,
+        occurrence_value=payload.occurrence_value,
+        probability_occurrence=calc["probability_occurrence"],
+        normalized_probability=calc["normalized_probability"],
+        equipment_risk=calc["equipment_risk"],
+        risk_percentage=calc["risk_percentage"],
+        risk_class=calc["risk_class"],
         recommended_action=payload.recommended_action,
         preventive_action=payload.preventive_action,
         corrective_action=payload.corrective_action,
@@ -115,7 +128,7 @@ async def create_risk_assessment(payload: EquipmentRiskConfigCreate, db: AsyncSe
 
 @router.put("/assessment/{id}", response_model=EquipmentRiskConfigSchema)
 async def update_risk_assessment(id: int, payload: EquipmentRiskConfigCreate, db: AsyncSession = Depends(get_db)):
-    """Update an existing equipment risk assessment configuration by ID."""
+    """Update an existing equipment risk assessment configuration by ID with Excel risk formulas."""
     result = await db.execute(select(EquipmentRiskConfig).where(EquipmentRiskConfig.id == id))
     config = result.scalar_one_or_none()
     if not config:
@@ -124,35 +137,60 @@ async def update_risk_assessment(id: int, payload: EquipmentRiskConfigCreate, db
             detail=f"Risk assessment configuration with ID {id} not found.",
         )
 
-    prob, equip_risk, risk_pct, risk_cls = calculate_equipment_risk_values(
-        payload.process_risk,
-        payload.patient_risk,
-        payload.equipment_count,
-        payload.minimum_required,
-    )
+    if payload.equipment_count <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Equipment count must be greater than zero.",
+        )
+
+    try:
+        calc = calculate_excel_risk(
+            equipment_category=payload.equipment_category,
+            process_risk=payload.process_risk,
+            patient_risk=payload.patient_risk,
+            occurrence_value=payload.occurrence_value,
+            equipment_count=payload.equipment_count,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
     config.device_type = payload.device_type
     config.arabic_name = payload.arabic_name
+    config.equipment_category = payload.equipment_category
     config.process_risk = payload.process_risk
     config.patient_risk = payload.patient_risk
     config.minimum_required = payload.minimum_required
     config.equipment_count = payload.equipment_count
-    config.probability_occurrence = prob
-    config.equipment_risk = equip_risk
-    config.risk_percentage = risk_pct
-    config.risk_class = risk_cls
-    if payload.recommended_action:
-        config.recommended_action = payload.recommended_action
-    if payload.preventive_action:
-        config.preventive_action = payload.preventive_action
-    if payload.corrective_action:
-        config.corrective_action = payload.corrective_action
+    config.occurrence_value = payload.occurrence_value
+    config.probability_occurrence = calc["probability_occurrence"]
+    config.normalized_probability = calc["normalized_probability"]
+    config.equipment_risk = calc["equipment_risk"]
+    config.risk_percentage = calc["risk_percentage"]
+    config.risk_class = calc["risk_class"]
+    config.recommended_action = payload.recommended_action
+    config.preventive_action = payload.preventive_action
+    config.corrective_action = payload.corrective_action
     if payload.notes:
         config.notes = payload.notes
 
     await db.commit()
     await db.refresh(config)
     return config
+
+
+@router.delete("/assessment/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_risk_assessment(id: int, db: AsyncSession = Depends(get_db)):
+    """Delete an equipment risk assessment configuration by ID."""
+    result = await db.execute(select(EquipmentRiskConfig).where(EquipmentRiskConfig.id == id))
+    config = result.scalar_one_or_none()
+    if not config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Risk assessment configuration with ID {id} not found.",
+        )
+    await db.delete(config)
+    await db.commit()
+    return None
 
 
 @router.get("/departments-compliance", response_model=DepartmentComplianceResponse)

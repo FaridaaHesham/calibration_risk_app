@@ -7,7 +7,7 @@ from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, or_, func, distinct
+from sqlalchemy import select, or_, func, distinct, delete
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +19,11 @@ from app.schemas import (
     AlertItemSchema, AlertsResponseSchema,
 )
 from app.prediction import build_year_scores, predict_calibration_interval, stability_from_rule
-from app.services.risk_service import calculate_calibration_risk_level, calculate_risk_class
+from app.services.risk_service import (
+    calculate_calibration_risk_level,
+    calculate_risk_class,
+    calculate_excel_risk,
+)
 from app.routers.settings import get_settings
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
@@ -97,23 +101,30 @@ async def get_calibration_alerts(db: AsyncSession = Depends(get_db)):
         )
         c_level = calculate_calibration_risk_level(cal_failure_rate)
 
-        # Dynamic Risk Scoring
-        min_req = c_cfg.minimum_required if (c_cfg and c_cfg.minimum_required) else 1
-        eq_count = c_cfg.equipment_count if (c_cfg and c_cfg.equipment_count) else 1
-        base_ratio = round(float(min_req) / max(float(eq_count), 1.0), 2)
+        # Pure Excel Risk Scoring (Decoupled from calibration failure rate)
+        if c_cfg:
+            cat = c_cfg.equipment_category or "medical"
+            p_risk = c_cfg.process_risk or 1
+            pat_risk = c_cfg.patient_risk or 1
+            occ_val = float(c_cfg.occurrence_value or 0.0)
+            eq_count = max(c_cfg.equipment_count or 1, 1)
 
-        if cal_failure_rate is not None:
-            fail_factor = 0.35 + (2.65 * (cal_failure_rate / 100.0))
-            dyn_prob_occ = round(max(0.10, base_ratio * fail_factor), 2)
+            calc = calculate_excel_risk(
+                equipment_category=cat,
+                process_risk=p_risk,
+                patient_risk=pat_risk,
+                occurrence_value=occ_val,
+                equipment_count=eq_count,
+            )
+            dyn_prob_occ = calc["probability_occurrence"]
+            dyn_equip_risk = calc["equipment_risk"]
+            dyn_risk_pct = calc["risk_percentage"]
+            dyn_risk_class = calc["risk_class"]
         else:
-            dyn_prob_occ = round(max(0.10, base_ratio * 0.50), 2)
-
-        p_risk = c_cfg.process_risk if c_cfg else 1
-        pat_risk = c_cfg.patient_risk if c_cfg else 1
-
-        dyn_equip_risk = round(p_risk * pat_risk * dyn_prob_occ, 2)
-        dyn_risk_pct = round(min(100.0, (dyn_equip_risk / 27.0) * 100.0), 2)
-        dyn_risk_class = calculate_risk_class(dyn_risk_pct)
+            dyn_prob_occ = 0.0
+            dyn_equip_risk = 0.0
+            dyn_risk_pct = 0.0
+            dyn_risk_class = "CLASS_1"
 
         # Interval Prediction
         recs_asc = sorted(records, key=lambda r: r.calibration_year or 0)
@@ -515,3 +526,23 @@ async def get_device(serial_number: str, db: AsyncSession = Depends(get_db)):
     """Return static device info for a given serial number."""
     device = await _get_device_or_404(serial_number, db)
     return _device_to_schema(device)
+
+
+@router.delete("/{serial_number:path}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_device(serial_number: str, db: AsyncSession = Depends(get_db)):
+    """Delete a registered device unit and its associated calibration records and tests instantaneously."""
+    res = await db.execute(select(Device.id).where(Device.serial_number == serial_number))
+    device_id = res.scalar_one_or_none()
+    if not device_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Device '{serial_number}' not found.",
+        )
+
+    # Fast direct SQL cascade deletion
+    sub_records = select(CalibrationRecord.id).where(CalibrationRecord.device_id == device_id)
+    await db.execute(delete(CalibrationTest).where(CalibrationTest.calibration_record_id.in_(sub_records)))
+    await db.execute(delete(CalibrationRecord).where(CalibrationRecord.device_id == device_id))
+    await db.execute(delete(Device).where(Device.id == device_id))
+    await db.commit()
+    return None

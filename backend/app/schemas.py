@@ -209,19 +209,22 @@ class ChartDataResponse(BaseModel):
 class EquipmentRiskConfigSchema(BaseModel):
     id: int
     device_type: str
-    arabic_name: Optional[str]
+    arabic_name: Optional[str] = None
+    equipment_category: str = "medical"       # "medical" | "non_medical"
     process_risk: int
     patient_risk: int
     minimum_required: int
     equipment_count: int
-    probability_occurrence: Optional[float]
-    equipment_risk: Optional[float]
-    risk_percentage: Optional[float]
-    risk_class: str                 # "CLASS_1" | "CLASS_2" | "CLASS_3"
-    recommended_action: Optional[str]
-    preventive_action: Optional[str]
-    corrective_action: Optional[str]
-    notes: Optional[str]
+    occurrence_value: Optional[float] = 0.0
+    probability_occurrence: Optional[float] = None
+    normalized_probability: Optional[float] = None
+    equipment_risk: Optional[float] = None
+    risk_percentage: Optional[float] = None
+    risk_class: str                           # "CLASS_1" | "CLASS_2" | "CLASS_3"
+    recommended_action: Optional[str] = None
+    preventive_action: Optional[str] = None
+    corrective_action: Optional[str] = None
+    notes: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -230,10 +233,12 @@ class EquipmentRiskConfigSchema(BaseModel):
 class EquipmentRiskConfigCreate(BaseModel):
     device_type: str
     arabic_name: Optional[str] = None
+    equipment_category: str = "medical"       # "medical" | "non_medical"
     process_risk: int = 1
     patient_risk: int = 1
     minimum_required: int = 1
     equipment_count: int = 1
+    occurrence_value: float = 0.0
     recommended_action: Optional[str] = None
     preventive_action: Optional[str] = None
     corrective_action: Optional[str] = None
@@ -242,18 +247,21 @@ class EquipmentRiskConfigCreate(BaseModel):
 
 class EquipmentRiskDataSchema(BaseModel):
     device_type: str
-    arabic_name: Optional[str]
+    arabic_name: Optional[str] = None
+    equipment_category: str = "medical"       # "medical" | "non_medical"
     process_risk: int
     patient_risk: int
     minimum_required: int
     equipment_count: int
+    occurrence_value: Optional[float] = 0.0
     probability_occurrence: float
+    normalized_probability: Optional[float] = 0.0
     equipment_risk: float
     risk_percentage: float
     risk_class: str
-    recommended_action: Optional[str]
-    preventive_action: Optional[str]
-    corrective_action: Optional[str]
+    recommended_action: Optional[str] = None
+    preventive_action: Optional[str] = None
+    corrective_action: Optional[str] = None
 
 
 class CalibrationRiskStatsSchema(BaseModel):

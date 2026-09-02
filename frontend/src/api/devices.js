@@ -75,6 +75,20 @@ export async function createDevice(deviceData) {
   }
 }
 
+export async function deleteDevice(serialNumber) {
+  try {
+    const res = await apiClient.delete(
+      `/api/devices/${encodeURIComponent(serialNumber)}`
+    );
+    return res.data;
+  } catch (err) {
+    const detail = err.response?.data?.detail;
+    throw new Error(
+      detail || 'Failed to delete device. Please try again.'
+    );
+  }
+}
+
 // ─── Calibrations ──────────────────────────────────────────────────────────
 
 export async function getCalibrationHistory(serialNumber) {

@@ -34,3 +34,7 @@ export async function updateRiskAssessment(id, payload) {
   const response = await apiClient.put(`/api/risk/assessment/${id}`, payload);
   return response.data;
 }
+
+export async function deleteRiskAssessment(id) {
+  await apiClient.delete(`/api/risk/assessment/${id}`);
+}

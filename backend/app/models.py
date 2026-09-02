@@ -11,22 +11,26 @@ from app.database import Base
 class EquipmentRiskConfig(Base):
     """
     Risk Assessment Configuration per Device Type.
-    Stores process risk, patient risk, equipment counts, probability of occurrence,
-    calculated risk score, risk percentage, and risk class from Excel methodology.
+    Stores process risk, patient risk, equipment counts, occurrence value, probability of occurrence,
+    normalized probability, calculated risk score, risk percentage, and risk class from Excel methodology.
+    Supports both Medical and Non-Medical equipment categories.
     """
     __tablename__ = "equipment_risk_configs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     device_type: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
     arabic_name: Mapped[str] = mapped_column(String, nullable=True)
-    process_risk: Mapped[int] = mapped_column(Integer, nullable=False, default=1)      # 1, 2, 3
-    patient_risk: Mapped[int] = mapped_column(Integer, nullable=False, default=1)      # 1, 2, 3
+    equipment_category: Mapped[str] = mapped_column(String, nullable=False, default="medical")  # "medical" | "non_medical"
+    process_risk: Mapped[int] = mapped_column(Integer, nullable=False, default=1)               # 1, 2, 3
+    patient_risk: Mapped[int] = mapped_column(Integer, nullable=False, default=1)               # 1, 2, 3
     minimum_required: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     equipment_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    occurrence_value: Mapped[float] = mapped_column(Numeric, nullable=True, default=0.0)
     probability_occurrence: Mapped[float] = mapped_column(Numeric, nullable=True)
+    normalized_probability: Mapped[float] = mapped_column(Numeric, nullable=True)
     equipment_risk: Mapped[float] = mapped_column(Numeric, nullable=True)
     risk_percentage: Mapped[float] = mapped_column(Numeric, nullable=True)
-    risk_class: Mapped[str] = mapped_column(String, nullable=False, default="CLASS_1")  # CLASS_1 | CLASS_2 | CLASS_3
+    risk_class: Mapped[str] = mapped_column(String, nullable=False, default="CLASS_1")           # CLASS_1 | CLASS_2 | CLASS_3
     recommended_action: Mapped[str] = mapped_column(String, nullable=True)
     preventive_action: Mapped[str] = mapped_column(String, nullable=True)
     corrective_action: Mapped[str] = mapped_column(String, nullable=True)

@@ -16,6 +16,8 @@
   justify-content: space-between;
   padding-bottom: 4px;
   border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .risk-page-main-title {
@@ -656,4 +658,868 @@
 .btn-cancel-edit:hover:not(:disabled) {
   background: #e2e8f0;
 }
+
+
+/* ── Accordion grouped device list ── */
+.accordion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.accordion-group {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+  transition: box-shadow 0.15s ease;
+}
+
+.accordion-group:hover {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.accordion-group.accordion-open {
+  border-color: #c7d7f9;
+  box-shadow: 0 3px 12px rgba(37, 99, 235, 0.08);
+}
+
+/* Accordion header — the clickable device type row */
+.accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  background: #f8fafc;
+  transition: background 0.14s ease;
+  gap: 12px;
+}
+
+.accordion-group.accordion-open .accordion-header {
+  background: #eff6ff;
+  border-bottom: 1px solid #c7d7f9;
+}
+
+.accordion-header:hover {
+  background: #f1f5f9;
+}
+
+.accordion-group.accordion-open .accordion-header:hover {
+  background: #dbeafe;
+}
+
+.accordion-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.accordion-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Animated chevron */
+.accordion-chevron {
+  display: inline-flex;
+  align-items: center;
+  color: #94a3b8;
+  transition: transform 0.2s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.accordion-chevron.rotated {
+  transform: rotate(90deg);
+  color: #2563eb;
+}
+
+/* Device type name */
+.accordion-type-name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.accordion-group.accordion-open .accordion-type-name {
+  color: #1d4ed8;
+}
+
+/* Count chip */
+.accordion-count-chip {
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.accordion-group.accordion-open .accordion-count-chip {
+  background: #bfdbfe;
+  color: #1e40af;
+}
+
+/* Accordion expanded body */
+.accordion-body {
+  overflow-x: auto;
+  animation: accordion-slide-down 0.18s ease;
+}
+
+@keyframes accordion-slide-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Inner device table */
+.accordion-devices-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.accordion-devices-table thead tr {
+  background: #f8fafc;
+}
+
+.accordion-devices-table th {
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.accordion-devices-table td {
+  padding: 9px 14px;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.accordion-devices-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.accordion-devices-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+/* Clickable serial number */
+.serial-link {
+  color: #2563eb;
+  cursor: pointer;
+  font-weight: 700;
+  text-decoration: none;
+  transition: color 0.15s, text-decoration 0.15s;
+}
+
+.serial-link:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+/* ── Risk Classification Manager ── */
+.risk-classification-manager {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.rcm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.rcm-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.rcm-badge {
+  background: #f1f5f9;
+  color: #64748b;
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+}
+
+.risk-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-register-unit-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #ffffff;
+  color: #1e40af;
+  border: 1.5px solid #93c5fd;
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.1);
+  letter-spacing: 0.01em;
+}
+
+.btn-register-unit-top:hover {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.2);
+}
+
+.btn-add-device-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+  letter-spacing: 0.01em;
+}
+
+.btn-add-device-type:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-add-device-type:active {
+  transform: translateY(0);
+}
+
+/* ── Accordion Inner Inventory Header ── */
+.accordion-inventory-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inventory-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  color: #1e293b;
+}
+
+.inventory-count-tag {
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.btn-add-unit-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-add-unit-sm:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+}
+
+.rcm-table-container {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.rcm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.rcm-table thead tr {
+  background: #f8fafc;
+}
+
+.rcm-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.rcm-table td {
+  padding: 10px 14px;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.rcm-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.rcm-table tbody tr:hover {
+  background: #f8fafc;
+  transition: background 0.15s;
+}
+
+/* Risk level indicator dots */
+.rcm-risk-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.rcm-risk-1 {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.rcm-risk-2 {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.rcm-risk-3 {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Remove button */
+.btn-remove-device-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff5f5;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-remove-device-type:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25);
+}
+
+/* Delete single unit button in accordion table */
+.btn-delete-unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff5f5;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-delete-unit:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+  box-shadow: 0 2px 5px rgba(239, 68, 68, 0.2);
+}
+
+/* Delete unit button in Device Details modal header */
+.btn-delete-unit-modal {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ffffff;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  box-shadow: 0 1px 2px rgba(239, 68, 68, 0.08);
+}
+
+.btn-delete-unit-modal:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+  box-shadow: 0 2px 5px rgba(239, 68, 68, 0.2);
+}
+
+/* Wider modal for Add form */
+.risk-modal-wide {
+  max-width: 780px !important;
+  width: 95vw !important;
+}
+
+/* ── Delete Confirmation Modal ── */
+.delete-confirm-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 36px 32px;
+  max-width: 420px;
+  width: 90vw;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+  animation: modal-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.delete-confirm-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.delete-confirm-icon svg {
+  background: #fef2f2;
+  padding: 14px;
+  border-radius: 50%;
+  box-sizing: content-box;
+}
+
+.delete-confirm-modal h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 10px 0;
+}
+
+.delete-confirm-modal p {
+  font-size: 0.9rem;
+  color: #475569;
+  margin: 0 0 20px 0;
+  line-height: 1.6;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-delete-confirm {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  border: none;
+  padding: 9px 22px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25);
+}
+
+.btn-delete-confirm:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-delete-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@keyframes modal-pop {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+/* ── Category Filter Tabs ── */
+.risk-category-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.risk-cat-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.risk-cat-tab-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.risk-cat-tab-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.25);
+}
+
+.risk-cat-tab-count {
+  background: rgba(0, 0, 0, 0.08);
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+}
+
+.risk-cat-tab-btn.active .risk-cat-tab-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+/* ── Classification Summary Card in Accordion ── */
+.classification-summary-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.summary-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 14px;
+}
+
+.summary-box-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  color: #0f172a;
+  flex-wrap: wrap;
+}
+
+.summary-calc-icon {
+  font-size: 1rem;
+}
+
+.formula-type-tag {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-edit-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-edit-inline:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+}
+
+.btn-edit-inline-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ffffff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-edit-inline-sm:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.summary-subgroup {
+  margin-bottom: 14px;
+}
+
+.summary-subgroup-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.subgroup-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.subgroup-badge.input-badge {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.subgroup-badge.calc-badge {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.classification-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.summary-stat-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.summary-stat-item:hover {
+  border-color: #cbd5e1;
+}
+
+.summary-stat-item.summary-stat-calculated {
+  background: #faf5ff;
+  border-color: #e9d5ff;
+}
+
+.summary-stat-item.summary-stat-calculated:hover {
+  border-color: #d8b4fe;
+}
+
+.summary-stat-label {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.summary-stat-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.summary-stat-value.calc-val {
+  color: #6b21a8;
+}
+
+.val-denom {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.stat-hint {
+  display: block;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.summary-actions-block {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px dashed #cbd5e1;
+  font-size: 0.82rem;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.action-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.action-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.action-tag.prev-tag {
+  color: #0284c7;
+}
+
+.action-tag.corr-tag {
+  color: #d97706;
+}
+
+/* ── Live Calculation Preview Box in Edit Modal ── */
+.calculated-preview-box {
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  border-left: 4px solid #9333ea;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calculated-preview-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #581c87;
+}
+
+.calculated-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.calc-preview-item {
+  background: #ffffff;
+  border: 1px solid #f3e8ff;
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.calc-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #7e22ce;
+  text-transform: uppercase;
+}
+
+.calc-value {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
 
