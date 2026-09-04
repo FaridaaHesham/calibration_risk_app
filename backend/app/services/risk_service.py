@@ -394,9 +394,30 @@ async def get_device_risk_summary(serial_number: str, db: AsyncSession) -> dict:
     Return unified Equipment Risk, Calibration Performance, Prediction & Recommendations.
     Equipment risk calculation is pure Excel rule-based and strictly decoupled from calibration data.
     """
-    stmt = select(Device).where(Device.serial_number == serial_number)
+    q = (serial_number or "").strip()
+    if not q:
+        return None
+    q_no_zero = q.lstrip('0') or '0'
+
+    # 1. Exact match
+    stmt = select(Device).where(
+        or_(
+            func.lower(Device.serial_number) == q.lower(),
+            func.lower(Device.serial_number) == q_no_zero.lower(),
+        )
+    )
     res = await db.execute(stmt)
-    device = res.scalar_one_or_none()
+    device = res.scalars().first()
+
+    # 2. Substring fallback match
+    if not device:
+        patterns = [f"%{q.lower()}%"]
+        if q_no_zero != q:
+            patterns.append(f"%{q_no_zero.lower()}%")
+        like_conds = [func.lower(Device.serial_number).like(p) for p in patterns]
+        res = await db.execute(select(Device).where(or_(*like_conds)))
+        device = res.scalars().first()
+
     if not device:
         return None
 

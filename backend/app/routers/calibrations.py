@@ -6,7 +6,7 @@ from typing import Optional
 import calendar
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,10 +26,34 @@ router = APIRouter(prefix="/api/calibrations", tags=["calibrations"])
 
 
 async def _get_device_by_serial(serial_number: str, db: AsyncSession) -> Device:
+    q = (serial_number or "").strip()
+    if not q:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No serial number provided.",
+        )
+    q_no_zero = q.lstrip('0') or '0'
+
+    # 1. Exact match
     result = await db.execute(
-        select(Device).where(Device.serial_number == serial_number)
+        select(Device).where(
+            or_(
+                func.lower(Device.serial_number) == q.lower(),
+                func.lower(Device.serial_number) == q_no_zero.lower(),
+            )
+        )
     )
-    device = result.scalar_one_or_none()
+    device = result.scalars().first()
+
+    # 2. Substring fallback match
+    if not device:
+        patterns = [f"%{q.lower()}%"]
+        if q_no_zero != q:
+            patterns.append(f"%{q_no_zero.lower()}%")
+        like_conds = [func.lower(Device.serial_number).like(p) for p in patterns]
+        res = await db.execute(select(Device).where(or_(*like_conds)))
+        device = res.scalars().first()
+
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -214,11 +238,21 @@ async def get_chart_data(serial_number: str, db: AsyncSession = Depends(get_db))
         # Use the last RECORDED calibration year as the anchor, not today's year.
         # This is correct: if the last recorded calibration is 2025 and the interval
         # is 1 year, the next calibration is due in October 2026 — NOT October 2027.
+        #
+        # However, a single addition of the interval can land in the past if the
+        # device has missed one or more cycles (e.g. last calibrated in 2022 with
+        # a 1-year interval, and it's now 2026 — 2022 + 1 = 2023, which is stale).
+        # Keep advancing by the interval until the date is no longer behind the
+        # current month/year, so we always show the next real due date.
+        today = date.today()
+        step = max(iv, 1)
         if year_scores:
             last_cal_year = year_scores[-1]["year"]
+            next_year = last_cal_year + step
+            while (next_year, cal_month) < (today.year, today.month):
+                next_year += step
         else:
-            last_cal_year = date.today().year
-        next_year = last_cal_year + iv
+            next_year = today.year + step
         month_name = calendar.month_name[cal_month]
         next_date = f"{month_name} {next_year}"
 
@@ -305,9 +339,9 @@ async def bulk_upload_calibrations(
     try:
         contents = await file.read()
         if file.filename.endswith(".csv"):
-            df = pd.read_csv(io.BytesIO(contents))
+            df = pd.read_csv(io.BytesIO(contents), dtype=str)
         elif file.filename.endswith((".xlsx", ".xls")):
-            df = pd.read_excel(io.BytesIO(contents))
+            df = pd.read_excel(io.BytesIO(contents), dtype=str)
         else:
             raise HTTPException(status_code=400, detail="Unsupported file format. Please upload .csv or .xlsx")
         

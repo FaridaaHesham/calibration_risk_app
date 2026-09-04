@@ -161,7 +161,7 @@ async def get_calibration_alerts(db: AsyncSession = Depends(get_db)):
             pred_date_str = f"October {next_year}"
 
         is_overdue = days_rem < 0
-        is_due_soon = 0 <= days_rem <= 30
+        is_due_soon = 0 <= days_rem <= 90
         is_high_risk_assess = dyn_risk_class == "CLASS_3" or dyn_risk_pct >= 60.0
         is_high_cal_risk = c_level == "HIGH" or (cal_failure_rate is not None and cal_failure_rate > 10.0) or most_recent_status == "FAIL"
 
@@ -238,17 +238,32 @@ async def get_calibration_alerts(db: AsyncSession = Depends(get_db)):
 
 def _next_calibration_date(interval_years: int, last_cal_year: int | None = None) -> str:
     """
-    Compute the next calibration date string (e.g. 'October 2026').
+    Compute the *next upcoming* calibration date string (e.g. 'October 2026').
     Uses the last recorded calibration year as the anchor so that a device
     whose most recent calibration was in 2025 with a 1-year interval gets
     'October 2026', not 'October 2027' (which would be wrong if the current
     year's calibration hasn't happened yet).
+
+    If the device has missed one or more cycles (e.g. last calibrated in
+    2022 with a 1-year interval, and it's now 2026), a single addition of
+    the interval would land in the past (2023). Keep advancing by the
+    interval until the date is no longer behind the current month/year, so
+    we always report the next real due date rather than a stale one.
     """
     settings = get_settings()
     cal_month = settings.get("calibration_month", 10)
     month_name = calendar.month_name[cal_month]
-    anchor = last_cal_year if last_cal_year is not None else date.today().year
-    return f"{month_name} {anchor + interval_years}"
+    today = date.today()
+    step = max(interval_years, 1)
+
+    if last_cal_year is not None:
+        next_year = last_cal_year + step
+        while (next_year, cal_month) < (today.year, today.month):
+            next_year += step
+    else:
+        next_year = today.year + step
+
+    return f"{month_name} {next_year}"
 
 
 def _device_to_schema(device: Device) -> DeviceSchema:
@@ -264,15 +279,55 @@ def _device_to_schema(device: Device) -> DeviceSchema:
     )
 
 
-async def _get_device_or_404(serial_number: str, db: AsyncSession) -> Device:
-    result = await db.execute(
-        select(Device).where(Device.serial_number == serial_number)
+async def _get_device_or_404(serial_number: str, db: AsyncSession, department: str | None = None) -> Device:
+    q = (serial_number or "").strip()
+    if not q:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No serial number provided.",
+        )
+    q_no_zero = q.lstrip('0') or '0'
+
+    # 1. Exact match (with and without leading zeros)
+    exact_stmt = select(Device).where(
+        or_(
+            func.lower(Device.serial_number) == q.lower(),
+            func.lower(Device.serial_number) == q_no_zero.lower(),
+        )
     )
-    device = result.scalar_one_or_none()
+    if department and department.strip():
+        exact_stmt = exact_stmt.where(func.lower(Device.department_name) == department.strip().lower())
+
+    res = await db.execute(exact_stmt)
+    device = res.scalars().first()
+
+    # 2. Substring fallback match if no exact match found
+    if not device:
+        patterns = [f"%{q.lower()}%"]
+        if q_no_zero != q:
+            patterns.append(f"%{q_no_zero.lower()}%")
+
+        like_conds = [func.lower(Device.serial_number).like(p) for p in patterns]
+        partial_stmt = select(Device).where(or_(*like_conds))
+        if department and department.strip():
+            partial_stmt = partial_stmt.where(func.lower(Device.department_name) == department.strip().lower())
+
+        res = await db.execute(partial_stmt)
+        device = res.scalars().first()
+
+    # 3. If still not found with department filter, search across all departments
+    if not device and department and department.strip():
+        patterns = [f"%{q.lower()}%"]
+        if q_no_zero != q:
+            patterns.append(f"%{q_no_zero.lower()}%")
+        like_conds = [func.lower(Device.serial_number).like(p) for p in patterns]
+        res = await db.execute(select(Device).where(or_(*like_conds)))
+        device = res.scalars().first()
+
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device ''{serial_number}'' not found.",
+            detail=f"Device '{serial_number}' not found.",
         )
     return device
 
@@ -345,10 +400,17 @@ async def _build_prediction_for_device(device: Device, db: AsyncSession) -> tupl
 @router.post("", response_model=DeviceSchema, status_code=status.HTTP_201_CREATED)
 async def create_device(payload: DeviceCreateRequest, db: AsyncSession = Depends(get_db)):
     """Register a brand-new device."""
+    sn = (payload.serial_number or "").strip()
+    sn_no_zero = sn.lstrip('0') or '0'
     existing = await db.execute(
-        select(Device).where(Device.serial_number == payload.serial_number)
+        select(Device).where(
+            or_(
+                func.lower(Device.serial_number) == sn.lower(),
+                func.lower(Device.serial_number) == sn_no_zero.lower(),
+            )
+        )
     )
-    if existing.scalar_one_or_none():
+    if existing.scalars().first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"A device with serial number ''{payload.serial_number}'' already exists.",
@@ -375,6 +437,16 @@ async def list_departments(db: AsyncSession = Depends(get_db)):
     return sorted(row[0] for row in result.all() if row[0])
 
 
+@router.get("/device-types", response_model=list[str])
+async def list_device_types(db: AsyncSession = Depends(get_db)):
+    """Return the distinct device types present in devices and equipment_risk_configs tables."""
+    res1 = await db.execute(select(Device.device_type).distinct())
+    res2 = await db.execute(select(EquipmentRiskConfig.device_type).distinct())
+    types = set(row[0] for row in res1.all() if row[0])
+    types.update(row[0] for row in res2.all() if row[0])
+    return sorted(types)
+
+
 @router.get("/predictions", response_model=list[PredictedDeviceSchema])
 async def get_devices_by_prediction(
     interval_years: Optional[int] = Query(None, description="1 or 2"),
@@ -386,37 +458,30 @@ async def get_devices_by_prediction(
     Return devices with their predicted calibration interval.
 
     The search term is pushed into SQL (ILIKE) so the database does the
-    heavy lifting and only matching rows are loaded into Python.  The
-    stability/interval guard is applied *before* the prediction loop so
-    we never waste time computing a prediction that will be discarded.
-    A hard cap of 200 results prevents accidental full-table sweeps.
+    heavy lifting and only matching rows are loaded into Python.
+    Supports terms starting with 0 by matching both exact query and stripped zeros.
     """
     stmt = select(Device)
 
     if search:
-        # Use SQL ILIKE so the DB engine filters rows — avoids loading the
-        # entire table into Python and eliminates the "or" substring problem
-        # (searching "OR" will only match devices whose fields equal or start
-        # with "or", not every word containing those letters like monitor/corridor).
         q = search.strip()
-        pattern = f"{q}%"          # prefix match  (e.g. "OR" matches "OR", "ORD", …)
-        contains = f"%{q}%"        # fallback substring for longer terms
-        # For short terms (≤3 chars) use exact prefix matching to avoid false hits.
-        # For longer terms use substring (more flexible).
-        if len(q) <= 3:
-            like_pattern = pattern
-        else:
-            like_pattern = contains
+        q_no_zero = q.lstrip('0')
 
-        stmt = stmt.where(
-            or_(
-                func.lower(Device.serial_number).like(like_pattern.lower()),
-                func.lower(Device.department_name).like(like_pattern.lower()),
-                func.lower(Device.device_type).like(like_pattern.lower()),
-                func.lower(Device.model).like(like_pattern.lower()),
-                func.lower(Device.manufacturer).like(like_pattern.lower()),
-            )
-        )
+        patterns = [f"%{q.lower()}%"]
+        if q_no_zero and q_no_zero != q:
+            patterns.append(f"%{q_no_zero.lower()}%")
+
+        conditions = []
+        for pat in patterns:
+            conditions.extend([
+                func.lower(Device.serial_number).like(pat),
+                func.lower(Device.department_name).like(pat),
+                func.lower(Device.device_type).like(pat),
+                func.lower(Device.model).like(pat),
+                func.lower(Device.manufacturer).like(pat),
+            ])
+
+        stmt = stmt.where(or_(*conditions))
 
     # Hard cap — prediction computation is expensive; never sweep the whole table.
     stmt = stmt.limit(200)
@@ -522,17 +587,30 @@ async def update_device(
 
 
 @router.get("/{serial_number:path}", response_model=DeviceSchema)
-async def get_device(serial_number: str, db: AsyncSession = Depends(get_db)):
+async def get_device(
+    serial_number: str,
+    department: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
     """Return static device info for a given serial number."""
-    device = await _get_device_or_404(serial_number, db)
+    device = await _get_device_or_404(serial_number, db, department=department)
     return _device_to_schema(device)
 
 
 @router.delete("/{serial_number:path}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_device(serial_number: str, db: AsyncSession = Depends(get_db)):
     """Delete a registered device unit and its associated calibration records and tests instantaneously."""
-    res = await db.execute(select(Device.id).where(Device.serial_number == serial_number))
-    device_id = res.scalar_one_or_none()
+    q = (serial_number or "").strip()
+    q_no_zero = q.lstrip('0') or '0'
+    res = await db.execute(
+        select(Device.id).where(
+            or_(
+                func.lower(Device.serial_number) == q.lower(),
+                func.lower(Device.serial_number) == q_no_zero.lower(),
+            )
+        )
+    )
+    device_id = res.scalars().first()
     if not device_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -545,4 +623,4 @@ async def delete_device(serial_number: str, db: AsyncSession = Depends(get_db)):
     await db.execute(delete(CalibrationRecord).where(CalibrationRecord.device_id == device_id))
     await db.execute(delete(Device).where(Device.id == device_id))
     await db.commit()
-    return None
+    return None

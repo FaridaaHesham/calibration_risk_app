@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getDevice, getCalibrationHistory, getChartData, getDevicesByPrediction, getDepartments, updateDevice } from '../api/devices';
+import { getDevice, getCalibrationHistory, getChartData, getDevicesByPrediction, getDepartments, updateDevice, deleteDevice } from '../api/devices';
 import DeviceInfoCard from '../components/DeviceInfoCard';
 import ControlChart from '../components/ControlChart';
 import RecommendationCard from '../components/RecommendationCard';
@@ -58,6 +58,11 @@ export default function CalibrationPage() {
   const [editSaving, setEditSaving]             = useState(false);
   const [editError, setEditError]               = useState('');
   const [editFields, setEditFields]             = useState({ department: '', deviceType: '', model: '', manufacturer: '', resolution: '' });
+
+  // Delete-device state (used from the Search tab's row actions, the Direct
+  // Lookup device info section, and the edit modal).
+  const [deletingSerial, setDeletingSerial]     = useState(null); // serial currently being deleted, or null
+  const [deleteError, setDeleteError]           = useState('');
 
   useEffect(() => {
     getDepartments()
@@ -124,7 +129,7 @@ export default function CalibrationPage() {
 
     try {
       const [dev, chart, hist] = await Promise.all([
-        getDevice(serial.trim()),
+        getDevice(serial.trim(), department),
         getChartData(serial.trim()),
         getCalibrationHistory(serial.trim()),
       ]);
@@ -202,6 +207,40 @@ export default function CalibrationPage() {
   function closeEditModal() {
     setEditingDevice(null);
     setEditError('');
+  }
+
+  // ── Delete device (and everything under it: calibration records + tests) ──
+  async function handleDeleteDevice(serialNumber) {
+    if (!serialNumber) return;
+    const confirmed = window.confirm(
+      `Permanently delete device "${serialNumber}" and ALL of its calibration records and test data? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeleteError('');
+    setDeletingSerial(serialNumber);
+    try {
+      await deleteDevice(serialNumber);
+
+      // Clear it out of every view that might currently be showing it.
+      if (device && device.serialNumber === serialNumber) {
+        setDevice(null);
+        setChartData(null);
+        setHistory([]);
+        setNotFound(false);
+        setSerialInput('');
+      }
+      if (editingDevice && editingDevice.serialNumber === serialNumber) {
+        closeEditModal();
+      }
+      if (activeTab === 'prediction' && hasSearched) {
+        handleFetchPredictions(selectedInterval, predStability, searchText);
+      }
+    } catch (err) {
+      setDeleteError(err.message || `Failed to delete device "${serialNumber}".`);
+    } finally {
+      setDeletingSerial(null);
+    }
   }
 
   async function handleSaveEdit(e) {
@@ -345,6 +384,12 @@ export default function CalibrationPage() {
         </button>
       </div>
 
+      {deleteError && (
+        <div className="card" style={{ borderColor: 'var(--danger)', color: 'var(--danger)', padding: '10px 16px', fontSize: '0.85rem' }}>
+          {deleteError}
+        </div>
+      )}
+
       {/* ─────────────────────────────────────────────────────────────
           Add Calibration Data Mode
       ───────────────────────────────────────────────────────────── */}
@@ -478,6 +523,15 @@ export default function CalibrationPage() {
                             >
                               Edit
                             </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-danger-outline"
+                              style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                              onClick={() => handleDeleteDevice(dev.serial_number)}
+                              disabled={deletingSerial === dev.serial_number}
+                            >
+                              {deletingSerial === dev.serial_number ? 'Deleting…' : 'Delete'}
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -557,13 +611,24 @@ export default function CalibrationPage() {
                 </div>
               </div>
 
-              <div className="edit-device-actions">
-                <button type="button" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={closeEditModal} disabled={editSaving}>
-                  Cancel
+              <div className="edit-device-actions" style={{ justifyContent: 'space-between' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-danger-outline"
+                  style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                  onClick={() => handleDeleteDevice(editingDevice.serialNumber)}
+                  disabled={editSaving || deletingSerial === editingDevice.serialNumber}
+                >
+                  {deletingSerial === editingDevice.serialNumber ? 'Deleting…' : 'Delete Device'}
                 </button>
-                <button type="submit" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} disabled={editSaving}>
-                  {editSaving ? 'Saving...' : 'Save'}
-                </button>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button type="button" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={closeEditModal} disabled={editSaving}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} disabled={editSaving}>
+                    {editSaving ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -655,11 +720,22 @@ export default function CalibrationPage() {
         <>
           {/* Step 2 — Device info */}
           <section className="cal-section" aria-label="Device information">
-            <div className="cal-section-header">
-              <StepBadge n={2} />
-              <div>
-                <h2 className="cal-section-title">Device Information</h2>
+            <div className="cal-section-header" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: 14 }}>
+                <StepBadge n={2} />
+                <div>
+                  <h2 className="cal-section-title">Device Information</h2>
+                </div>
               </div>
+              <button
+                type="button"
+                className="btn btn-outline btn-danger-outline"
+                style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                onClick={() => handleDeleteDevice(device.serialNumber)}
+                disabled={deletingSerial === device.serialNumber}
+              >
+                {deletingSerial === device.serialNumber ? 'Deleting…' : 'Delete Device'}
+              </button>
             </div>
             <DeviceInfoCard device={device} loading={false} />
           </section>
@@ -720,7 +796,7 @@ export default function CalibrationPage() {
               </div>
             </div>
             <div className="card">
-              <CalibrationHistoryTable records={history} serialNumber={device.serial_number} />
+              <CalibrationHistoryTable records={history} serialNumber={device.serialNumber} />
             </div>
           </section>
         </>

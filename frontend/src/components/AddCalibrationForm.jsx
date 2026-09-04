@@ -8,6 +8,7 @@ import {
   getToleranceRules,
   getDeviceTestLabels,
   getCalibrationHistory,
+  getDeviceTypes,
 } from '../api/devices';
 
 import './AddCalibrationForm.css';
@@ -379,6 +380,7 @@ export default function AddCalibrationForm() {
   const [isCreating, setIsCreating] = useState(false);
   const [creatingDevice, setCreatingDevice] = useState(false);
   const [newDeviceType, setNewDeviceType] = useState('');
+  const [knownDeviceTypes, setKnownDeviceTypes] = useState([]);
   const [newDeviceModel, setNewDeviceModel] = useState('');
   const [newDeviceMfr, setNewDeviceMfr] = useState('');
   const [newDeviceResolution, setNewDeviceResolution] = useState('');
@@ -395,6 +397,13 @@ export default function AddCalibrationForm() {
           'Failed to load departments:',
           err
         );
+      }
+
+      try {
+        const typesData = await getDeviceTypes();
+        setKnownDeviceTypes(typesData || []);
+      } catch (err) {
+        console.error('Failed to load device types:', err);
       }
 
       try {
@@ -1153,18 +1162,47 @@ export default function AddCalibrationForm() {
                       </span>
                     </label>
 
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={newDeviceType}
-                      onChange={(e) =>
-                        setNewDeviceType(
-                          e.target.value
-                        )
+                    <select
+                      className="form-select"
+                      value={
+                        knownDeviceTypes.includes(newDeviceType)
+                          ? newDeviceType
+                          : (newDeviceType ? '__custom__' : '')
                       }
-                      placeholder="e.g. Centrifuge"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '__custom__') {
+                          setNewDeviceType('');
+                        } else {
+                          setNewDeviceType(val);
+                        }
+                      }}
                       required
-                    />
+                    >
+                      <option value="">Select device type...</option>
+                      {knownDeviceTypes.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                      <option value="__custom__">
+                        Other (Enter custom type...)
+                      </option>
+                    </select>
+
+                    {(!knownDeviceTypes.includes(newDeviceType) || newDeviceType === '') && (
+                      <input
+                        type="text"
+                        className="form-input"
+                        style={{ marginTop: 8 }}
+                        value={newDeviceType}
+                        onChange={(e) =>
+                          setNewDeviceType(e.target.value)
+                        }
+                        placeholder="Enter custom device type..."
+                        required
+                      />
+                    )}
                   </div>
 
                   {/* Model */}

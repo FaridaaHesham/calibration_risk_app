@@ -111,13 +111,15 @@ export default function NotificationCenter() {
       } else if (activeTab === 'OVERDUE') {
         if (alert.days_remaining >= 0) return false;
       } else if (activeTab === 'DUE_SOON') {
-        if (alert.days_remaining < 0 || alert.days_remaining > 30) return false;
+        if (alert.days_remaining < 0 || alert.days_remaining > 90) return false;
       }
 
       // Search text filter
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchSerial = (alert.serial_number || '').toLowerCase().includes(q);
+        const q = searchQuery.toLowerCase().trim();
+        const qNoZero = q.replace(/^0+/, '');
+        const sn = (alert.serial_number || '').toLowerCase();
+        const matchSerial = sn.includes(q) || (qNoZero && sn.includes(qNoZero));
         const matchDept = (alert.department || '').toLowerCase().includes(q);
         const matchType = (alert.device_type || '').toLowerCase().includes(q);
         const matchModel = (alert.model || '').toLowerCase().includes(q);

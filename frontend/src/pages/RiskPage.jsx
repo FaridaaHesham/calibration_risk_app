@@ -757,10 +757,14 @@ export default function RiskPage() {
 
     // Search query
     if (searchTerm) {
-      const q = searchTerm.toLowerCase();
+      const q = searchTerm.toLowerCase().trim();
+      const qNoZero = q.replace(/^0+/, '');
       const matchType = item.typeName && item.typeName.toLowerCase().includes(q);
       const matchArabic = item.arabicName && item.arabicName.toLowerCase().includes(q);
-      const matchSerial = item.devices.some(d => d.serial_number && d.serial_number.toLowerCase().includes(q));
+      const matchSerial = item.devices.some(d => {
+        const sn = (d.serial_number || '').toLowerCase();
+        return sn.includes(q) || (qNoZero && sn.includes(qNoZero));
+      });
       const matchDept = item.devices.some(d => d.department && d.department.toLowerCase().includes(q));
       if (!matchType && !matchArabic && !matchSerial && !matchDept) return false;
     }
@@ -791,7 +795,7 @@ export default function RiskPage() {
               title="Register a physical machine with a Serial Number into hospital inventory"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-              + Register Unit (Serial No.)
+              Register Unit (Serial No.)
             </button>
             <button
               className="btn-add-device-type"
@@ -800,7 +804,7 @@ export default function RiskPage() {
               title="Define a new equipment category with its Excel risk criteria"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              + Add Equipment Classification Type
+              Add Equipment Classification Type
             </button>
           </div>
         )}

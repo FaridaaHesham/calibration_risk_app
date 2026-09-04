@@ -11,12 +11,22 @@ export async function getDepartments() {
   return res.data;
 }
 
+export async function getDeviceTypes() {
+  const res = await apiClient.get('/api/devices/device-types');
+  return res.data;
+}
+
 // ─── Devices ───────────────────────────────────────────────────────────────
 
-export async function getDevice(serialNumber) {
+export async function getDevice(serialNumber, department = null) {
   try {
+    const params = {};
+    if (department && department.trim()) {
+      params.department = department.trim();
+    }
     const res = await apiClient.get(
-      `/api/devices/${encodeURIComponent(serialNumber)}`
+      `/api/devices/${encodeURIComponent(serialNumber)}`,
+      { params }
     );
 
     const d = res.data;
@@ -71,20 +81,6 @@ export async function createDevice(deviceData) {
     throw new Error(
       detail ||
         'Failed to create device. Please try again.'
-    );
-  }
-}
-
-export async function deleteDevice(serialNumber) {
-  try {
-    const res = await apiClient.delete(
-      `/api/devices/${encodeURIComponent(serialNumber)}`
-    );
-    return res.data;
-  } catch (err) {
-    const detail = err.response?.data?.detail;
-    throw new Error(
-      detail || 'Failed to delete device. Please try again.'
     );
   }
 }
@@ -267,6 +263,23 @@ export async function updateDevice(
     throw new Error(
       detail ||
         'Failed to update device. Please try again.'
+    );
+  }
+}
+
+// ─── Device Delete ─────────────────────────────────────────────────────────
+
+export async function deleteDevice(serialNumber) {
+  try {
+    await apiClient.delete(
+      `/api/devices/${encodeURIComponent(serialNumber)}`
+    );
+  } catch (err) {
+    const detail = err.response?.data?.detail;
+
+    throw new Error(
+      detail ||
+        `Failed to delete device "${serialNumber}". Please try again.`
     );
   }
 }
