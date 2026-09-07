@@ -428,7 +428,7 @@ async def bulk_upload_calibrations(
                     ref_val = float(ref_val_raw)
                     act_val = float(act_val_raw)
                     test_label = str(row["test_label"]).strip()
-                    deviation = float(row.get("deviation", act_val - ref_val)) if pd.notna(row.get("deviation")) else (act_val - ref_val)
+                    deviation = float(row.get("deviation", ref_val - act_val)) if pd.notna(row.get("deviation")) else (ref_val - act_val)
                     
                     min_val = float(row.get("min_value", ref_val * 0.95)) if pd.notna(row.get("min_value")) else (ref_val * 0.95)
                     max_val = float(row.get("max_value", ref_val * 1.05)) if pd.notna(row.get("max_value")) else (ref_val * 1.05)

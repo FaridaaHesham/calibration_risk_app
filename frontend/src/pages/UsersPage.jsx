@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import apiClient from '../api/client';
 import './UsersPage.css';
-
-const API_BASE = 'http://127.0.0.1:8000/api';
 
 const UsersIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -34,7 +32,7 @@ export default function UsersPage() {
   const [error, setError] = useState(null);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'USER', full_name: '' });
+  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'Biomedical Engineer', full_name: '' });
 
   useEffect(() => {
     fetchData();
@@ -42,15 +40,13 @@ export default function UsersPage() {
 
   const fetchData = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const token = localStorage.getItem('auth_token');
-      const headers = { Authorization: `Bearer ${token}` };
-      
       if (activeTab === 'users') {
-        const res = await axios.get(`${API_BASE}/users`, { headers });
+        const res = await apiClient.get('/api/users');
         setUsers(res.data);
       } else {
-        const res = await axios.get(`${API_BASE}/users/audit-logs`, { headers });
+        const res = await apiClient.get('/api/users/audit-logs');
         setLogs(res.data);
       }
     } catch (err) {
@@ -63,12 +59,9 @@ export default function UsersPage() {
   const handleAddUser = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('auth_token');
-      await axios.post(`${API_BASE}/users`, newUser, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await apiClient.post('/api/users', newUser);
       setIsAddModalOpen(false);
-      setNewUser({ username: '', password: '', role: 'USER', full_name: '' });
+      setNewUser({ username: '', password: '', role: 'Biomedical Engineer', full_name: '' });
       fetchData();
     } catch (err) {
       alert(err.response?.data?.detail || "Failed to create user");
@@ -78,10 +71,7 @@ export default function UsersPage() {
   const handleDeleteUser = async (userId) => {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
-      const token = localStorage.getItem('auth_token');
-      await axios.delete(`${API_BASE}/users/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await apiClient.delete(`/api/users/${userId}`);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.detail || "Failed to delete user");
@@ -129,22 +119,25 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map(u => (
-                <tr key={u.id}>
-                  <td>{u.full_name || '—'}</td>
-                  <td>{u.username}</td>
-                  <td>
-                    <span className={`role-badge ${u.role === 'ADMIN' ? 'admin' : ''}`}>
-                      {u.role === 'ADMIN' && <ShieldIcon />}
-                      {u.role}
-                    </span>
-                  </td>
-                  <td><span className="status-badge active">Active</span></td>
-                  <td>
-                    <button className="btn-link" style={{ color: '#dc2626' }} onClick={() => handleDeleteUser(u.id)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
+              {users.map(u => {
+                const isAdmin = u.role?.toUpperCase().includes('ADMIN');
+                return (
+                  <tr key={u.id}>
+                    <td>{u.full_name || '—'}</td>
+                    <td>{u.username}</td>
+                    <td>
+                      <span className={`role-badge ${isAdmin ? 'admin' : ''}`}>
+                        {isAdmin && <ShieldIcon />}
+                        {u.role || 'User'}
+                      </span>
+                    </td>
+                    <td><span className={`status-badge ${u.is_active !== false ? 'active' : 'inactive'}`}>{u.is_active !== false ? 'Active' : 'Disabled'}</span></td>
+                    <td>
+                      <button className="btn-link" style={{ color: '#dc2626' }} onClick={() => handleDeleteUser(u.id)}>Delete</button>
+                    </td>
+                  </tr>
+                );
+              })}
               {users.length === 0 && (
                 <tr><td colSpan="5" style={{ textAlign: 'center', padding: 20 }}>No users found.</td></tr>
               )}
@@ -157,17 +150,17 @@ export default function UsersPage() {
                 <th>Timestamp</th>
                 <th>User</th>
                 <th>Action</th>
-                <th>Target</th>
+                <th>Target Entity</th>
                 <th>Details</th>
               </tr>
             </thead>
             <tbody>
               {logs.map(log => (
                 <tr key={log.id}>
-                  <td style={{ whiteSpace: 'nowrap' }}>{new Date(log.timestamp).toLocaleString()}</td>
-                  <td><strong>{log.username}</strong></td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{log.created_at || '—'}</td>
+                  <td><strong>{log.user_name || '—'}</strong></td>
                   <td><span className="action-badge">{log.action}</span></td>
-                  <td>{log.target_resource || '—'}</td>
+                  <td>{log.entity_type || '—'}</td>
                   <td className="log-details">{log.details || '—'}</td>
                 </tr>
               ))}

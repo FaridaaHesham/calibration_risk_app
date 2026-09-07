@@ -375,7 +375,7 @@ async def compute_device_prediction_status(device: Device, db: AsyncSession) -> 
 
     if days_rem < 0:
         status_label = "OVERDUE"
-    elif days_rem <= 30:
+    elif days_rem <= 90:
         status_label = "DUE SOON"
     else:
         status_label = "NORMAL"
@@ -506,7 +506,7 @@ async def get_device_risk_summary(serial_number: str, db: AsyncSession) -> dict:
     if pred_stats["status"] == "OVERDUE":
         recommendations.append("URGENT: Calibration is OVERDUE. Schedule immediate calibration service.")
     elif pred_stats["status"] == "DUE SOON":
-        recommendations.append("Notice: Calibration is due within 30 days. Prepare calibration protocol.")
+        recommendations.append("Notice: Calibration is due within 90 days. Prepare calibration protocol.")
 
     return {
         "device": {
@@ -638,7 +638,7 @@ async def get_risk_dashboard_summary(db: AsyncSession) -> dict:
 
         if days_rem < 0:
             cal_status = "OVERDUE"
-        elif days_rem <= 30:
+        elif days_rem <= 90:
             cal_status = "DUE SOON"
         else:
             cal_status = "NORMAL"

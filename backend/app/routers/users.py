@@ -135,6 +135,20 @@ async def reset_password(user_id: int, payload: UserPasswordResetRequest, db: As
     return {"success": True, "message": f"Password for '{user.username}' has been successfully updated."}
 
 
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
+    """Delete a staff user account."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    await db.delete(user)
+    await db.commit()
+    await log_action(db, "admin", "DELETE_USER", "User", f"Deleted user '{user.username}'")
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Audit Logs Endpoints
 # ---------------------------------------------------------------------------

@@ -596,6 +596,34 @@ export default function AddCalibrationForm() {
 
       setDevice(newDev);
       setIsCreating(false);
+
+      // ── Detect test labels & units for new device ────────────────
+      try {
+        const labels = await getDeviceTestLabels(newDev.serialNumber);
+        const labelsList = Array.isArray(labels) ? labels : [];
+        setDeviceTestLabels(labelsList);
+
+        const unitMap = {};
+        toleranceRules.forEach((rule) => {
+          if (rule.test_label && rule.unit) {
+            unitMap[rule.test_label] = rule.unit;
+          }
+        });
+        setDeviceTestUnits(unitMap);
+
+        if (labelsList.length === 1) {
+          const label = labelsList[0];
+          setTests((prev) =>
+            prev.map((test) => ({
+              ...test,
+              test_label: label,
+              test_point_unit: unitMap[label] || test.test_point_unit || '',
+            }))
+          );
+        }
+      } catch (err) {
+        console.error('Failed to load test labels for new device:', err);
+      }
     } catch (err) {
       console.error(
         'Failed to create device:',

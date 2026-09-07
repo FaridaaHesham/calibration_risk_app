@@ -535,6 +535,7 @@ async def get_devices_by_prediction(
 async def get_device_test_labels(serial_number: str, db: AsyncSession = Depends(get_db)):
     """
     Return the distinct test labels historically used for a device,
+    or for other devices of the same device_type if this device is brand new.
     ordered alphabetically. Used by the Add Calibration form to pre-populate
     the test-label dropdown when a device is selected.
     """
@@ -551,6 +552,22 @@ async def get_device_test_labels(serial_number: str, db: AsyncSession = Depends(
         .order_by(CalibrationTest.test_label)
     )
     labels = [row[0] for row in result.all() if row[0]]
+
+    # If new device has no records, fall back to historical test labels for devices of the same type
+    if not labels and device.device_type:
+        result_type = await db.execute(
+            select(distinct(CalibrationTest.test_label))
+            .join(CalibrationRecord, CalibrationTest.calibration_record_id == CalibrationRecord.id)
+            .join(Device, CalibrationRecord.device_id == Device.id)
+            .where(
+                func.lower(Device.device_type) == device.device_type.strip().lower(),
+                CalibrationTest.test_label.isnot(None),
+                CalibrationTest.test_label != "",
+            )
+            .order_by(CalibrationTest.test_label)
+        )
+        labels = [row[0] for row in result_type.all() if row[0]]
+
     return labels
 
 

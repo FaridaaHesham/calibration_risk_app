@@ -1,8 +1,6 @@
 import { useState, useRef } from 'react';
-import axios from 'axios';
+import apiClient from '../api/client';
 import './BulkImportModal.css';
-
-const API_BASE = 'http://127.0.0.1:8000/api';
 
 const UploadIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -75,11 +73,9 @@ export default function BulkImportModal({ onClose, onSuccess }) {
     formData.append('file', file);
 
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await axios.post(`${API_BASE}/calibrations/bulk-upload`, formData, {
+      const res = await apiClient.post('/api/calibrations/bulk-upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`
         }
       });
       setResult(res.data);
