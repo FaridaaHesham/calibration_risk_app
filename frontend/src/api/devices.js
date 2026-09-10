@@ -143,6 +143,17 @@ export async function createCalibrationRecord(payload) {
   }
 }
 
+export async function deleteCalibrationRecord(recordId) {
+  try {
+    await apiClient.delete(`/api/calibrations/record/${recordId}`);
+  } catch (err) {
+    const detail = err.response?.data?.detail;
+    throw new Error(
+      detail || 'Failed to delete calibration record. Please try again.'
+    );
+  }
+}
+
 // ─── Chart ─────────────────────────────────────────────────────────────────
 
 export async function getChartData(serialNumber) {

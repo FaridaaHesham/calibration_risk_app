@@ -1,5 +1,5 @@
 {
-  "edge_warning_threshold": 80.0,
-  "min_trend_increase": 25.0,
+  "edge_warning_threshold": 51.0,
+  "min_trend_increase": 11.0,
   "calibration_month": 10
 }

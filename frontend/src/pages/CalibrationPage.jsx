@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getDevice, getCalibrationHistory, getChartData, getDevicesByPrediction, getDepartments, updateDevice, deleteDevice } from '../api/devices';
+import {
+  getDevice,
+  getCalibrationHistory,
+  getChartData,
+  getDevicesByPrediction,
+  getDepartments,
+  updateDevice,
+  deleteDevice,
+  deleteCalibrationRecord,
+} from '../api/devices';
 import DeviceInfoCard from '../components/DeviceInfoCard';
 import ControlChart from '../components/ControlChart';
 import RecommendationCard from '../components/RecommendationCard';
@@ -31,7 +40,7 @@ const DownloadIcon = () => (
 );
 
 export default function CalibrationPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [departments, setDepartments] = useState([]);
   const [department, setDepartment] = useState('');
   const [serialInput, setSerialInput] = useState('');
@@ -72,13 +81,38 @@ export default function CalibrationPage() {
 
   useEffect(() => {
     const query = searchParams.get('search') || searchParams.get('serial');
+    const tab = searchParams.get('tab');
+    if (tab && ['direct', 'prediction', 'add'].includes(tab)) {
+      setActiveTab(tab);
+    } else if (!tab && !query) {
+      setActiveTab('direct');
+    }
+
     if (query) {
       const serial = query.trim();
       setSerialInput(serial);
-      setActiveTab('direct');
+      if (!tab) setActiveTab('direct');
       executeSearch(serial);
+    } else {
+      // If back button took us to a URL without serial, clear device results
+      setDevice(null);
+      setChartData(null);
+      setHistory([]);
+      setNotFound(false);
+      setSerialInput('');
     }
   }, [searchParams]);
+
+  function handleTabChange(tab) {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams);
+    if (tab === 'direct') {
+      params.delete('tab');
+    } else {
+      params.set('tab', tab);
+    }
+    setSearchParams(params);
+  }
 
   // Reactive fetch: fires whenever the committed search text, filters, or tab changes.
   // All values read inside the effect are listed in the dep array — no stale closures.
@@ -140,6 +174,7 @@ export default function CalibrationPage() {
         setDevice(dev);
         setChartData(chart);
         setHistory(hist);
+        setSearchParams({ serial: serial.trim() }, { replace: true });
 
         if (chart?.accessories) {
           const keys = Object.keys(chart.accessories);
@@ -170,12 +205,21 @@ export default function CalibrationPage() {
 
   async function handleSearch(e) {
     e.preventDefault();
+    if (!serialInput.trim()) return;
+    const params = new URLSearchParams(searchParams);
+    params.set('serial', serialInput.trim());
+    params.delete('tab');
+    setSearchParams(params);
     await executeSearch(serialInput);
   }
 
   function handleSelectPredDevice(sn) {
     setSerialInput(sn);
     setActiveTab('direct');
+    const params = new URLSearchParams(searchParams);
+    params.set('serial', sn);
+    params.delete('tab');
+    setSearchParams(params);
     executeSearch(sn);
   }
 
@@ -229,6 +273,7 @@ export default function CalibrationPage() {
         setHistory([]);
         setNotFound(false);
         setSerialInput('');
+        setSearchParams({}, { replace: true });
       }
       if (editingDevice && editingDevice.serialNumber === serialNumber) {
         closeEditModal();
@@ -240,6 +285,40 @@ export default function CalibrationPage() {
       setDeleteError(err.message || `Failed to delete device "${serialNumber}".`);
     } finally {
       setDeletingSerial(null);
+    }
+  }
+
+  function handleViewDeviceAfterAdd(serial) {
+    if (!serial) return;
+    setActiveTab('direct');
+    setSerialInput(serial);
+    setSearchParams({ serial: serial.trim() }, { replace: true });
+    executeSearch(serial);
+  }
+
+  // ── Delete a single calibration session (year record + its tests) ─────────
+  async function handleDeleteRecord(recordId, calYear) {
+    if (!recordId) return;
+    const yearLabel = calYear ? `for year ${calYear}` : '';
+    const confirmed = window.confirm(
+      `Permanently delete calibration record ${yearLabel}? This will remove all associated test measurements and recalculate predictions.`
+    );
+    if (!confirmed) return;
+
+    setDeleteError('');
+    try {
+      await deleteCalibrationRecord(recordId);
+      if (device?.serialNumber) {
+        // Re-fetch chart data and calibration history to refresh graph, stability, and table
+        const [chart, hist] = await Promise.all([
+          getChartData(device.serialNumber),
+          getCalibrationHistory(device.serialNumber),
+        ]);
+        setChartData(chart);
+        setHistory(hist || []);
+      }
+    } catch (err) {
+      setDeleteError(err.message || 'Failed to delete calibration record.');
     }
   }
 
@@ -353,7 +432,13 @@ export default function CalibrationPage() {
         <button
           type="button"
           className={`btn ${activeTab === 'direct' ? 'btn-primary' : 'btn-outline'}`}
-          onClick={() => setActiveTab('direct')}
+          onClick={() => {
+            handleTabChange('direct');
+            const targetSerial = serialInput.trim() || device?.serialNumber;
+            if (targetSerial) {
+              executeSearch(targetSerial);
+            }
+          }}
           style={{ fontSize: '0.8125rem' }}
         >
           Direct Serial Lookup
@@ -361,7 +446,7 @@ export default function CalibrationPage() {
         <button
           type="button"
           className={`btn ${activeTab === 'prediction' ? 'btn-primary' : 'btn-outline'}`}
-          onClick={() => setActiveTab('prediction')}
+          onClick={() => handleTabChange('prediction')}
           style={{ fontSize: '0.8125rem' }}
         >
           Search
@@ -369,7 +454,7 @@ export default function CalibrationPage() {
         <button
           type="button"
           className={`btn ${activeTab === 'add' ? 'btn-primary' : 'btn-outline'}`}
-          onClick={() => setActiveTab('add')}
+          onClick={() => handleTabChange('add')}
           style={{ fontSize: '0.8125rem' }}
         >
           Add Calibration Data
@@ -394,7 +479,7 @@ export default function CalibrationPage() {
           Add Calibration Data Mode
       ───────────────────────────────────────────────────────────── */}
       {activeTab === 'add' && (
-        <AddCalibrationForm />
+        <AddCalibrationForm onViewDevice={handleViewDeviceAfterAdd} />
       )}
 
       {/* ─────────────────────────────────────────────────────────────
@@ -796,7 +881,11 @@ export default function CalibrationPage() {
               </div>
             </div>
             <div className="card">
-              <CalibrationHistoryTable records={history} serialNumber={device.serialNumber} />
+              <CalibrationHistoryTable
+                records={history}
+                serialNumber={device.serialNumber}
+                onDeleteRecord={handleDeleteRecord}
+              />
             </div>
           </section>
         </>

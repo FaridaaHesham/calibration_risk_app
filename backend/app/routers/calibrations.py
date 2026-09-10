@@ -6,7 +6,7 @@ from typing import Optional
 import calendar
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, delete
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -326,6 +326,29 @@ async def get_calibration_history(serial_number: str, db: AsyncSession = Depends
             ],
         ))
     return output
+
+
+@router.delete("/record/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/records/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{record_id:int}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_calibration_record(record_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Delete a single calibration record (session/year) and all of its associated test measurements.
+    """
+    rec_result = await db.execute(select(CalibrationRecord).where(CalibrationRecord.id == record_id))
+    record = rec_result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Calibration record with ID {record_id} not found.",
+        )
+
+    # Delete child test measurements first
+    await db.execute(delete(CalibrationTest).where(CalibrationTest.calibration_record_id == record_id))
+    # Delete the calibration record itself
+    await db.execute(delete(CalibrationRecord).where(CalibrationRecord.id == record_id))
+    await db.commit()
+    return None
 
 
 @router.post("/bulk-upload", response_model=BulkImportResponse)

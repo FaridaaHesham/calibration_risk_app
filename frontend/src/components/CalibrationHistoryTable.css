@@ -171,3 +171,75 @@
 .dev-low    { color: var(--success)      !important; font-weight: 500; }
 .dev-medium { color: var(--warning)      !important; font-weight: 500; }
 .dev-high   { color: var(--danger)       !important; font-weight: 600; }
+
+/* ── Actions column & Delete buttons ─────────────────────────── */
+.col-action {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.btn-delete-record {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #dc2626;
+  background: transparent;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-delete-record:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+
+.btn-delete-record:active {
+  transform: scale(0.97);
+}
+
+.btn-delete-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #dc2626;
+  background: #fff;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-delete-sm:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+
+.btn-print-sm {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--primary);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-print-sm:hover {
+  background: var(--bg-hover, #f1f5f9);
+  border-color: var(--primary-light);
+}
+

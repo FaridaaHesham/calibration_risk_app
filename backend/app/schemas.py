@@ -153,8 +153,8 @@ class CalibrationRecordSchema(BaseModel):
 class TestInput(BaseModel):
     """One row from the 'Calibration Measurements' section of the add-record form."""
     test_label: str
-    test_point_unit: str               # required — the measurement unit (e.g. mmHg, BPM)
-    reference_value: float             # required — the nominal reference point
+    test_point_unit: Optional[str] = None
+    reference_value: Optional[float] = None
     actual_value: float
     min_value: float
     max_value: float

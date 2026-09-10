@@ -342,7 +342,7 @@ function TestRow({
 
 // ─── Main Form component ──────────────────────────────────────────────────
 
-export default function AddCalibrationForm() {
+export default function AddCalibrationForm({ onViewDevice }) {
   // Departments
   const [departments, setDepartments] = useState([]);
   const [toleranceRules, setToleranceRules] = useState([]);
@@ -962,7 +962,20 @@ export default function AddCalibrationForm() {
             viewed.
           </p>
 
-          <div className="success-actions">
+          <div className="success-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => {
+                if (onViewDevice && device?.serialNumber) {
+                  onViewDevice(device.serialNumber);
+                } else {
+                  handleReset();
+                }
+              }}
+            >
+              View Device History &amp; Charts
+            </button>
             <button
               type="button"
               className="btn btn-primary"
