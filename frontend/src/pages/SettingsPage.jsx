@@ -7,6 +7,7 @@ export default function SettingsPage() {
     edge_warning_threshold: 75.0,
     min_trend_increase: 10.0,
     calibration_month: 10,
+    due_soon_months: 2,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,6 +37,7 @@ export default function SettingsPage() {
         edge_warning_threshold: parseFloat(settings.edge_warning_threshold),
         min_trend_increase: parseFloat(settings.min_trend_increase),
         calibration_month: parseInt(settings.calibration_month),
+        due_soon_months: parseInt(settings.due_soon_months),
       });
       setSuccess('Settings updated successfully.');
     } catch (err) {
@@ -138,6 +140,31 @@ export default function SettingsPage() {
               <option value="11">November</option>
               <option value="12">December</option>
             </select>
+          </div>
+
+          {/* Due Soon Months */}
+          <div className="settings-field" style={{ marginBottom: '24px' }}>
+            <label className="form-label" htmlFor="due-soon-months" style={{ fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+              Due Soon Notification Window (months)
+            </label>
+            <p className="field-desc" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 12px' }}>
+              Devices with calibration due within this many months will appear in the notification bell.
+            </p>
+            <div className="slider-input-group" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <input
+                id="due-soon-months"
+                type="range"
+                min="1"
+                max="12"
+                step="1"
+                style={{ flex: 1 }}
+                value={settings.due_soon_months}
+                onChange={(e) => setSettings({ ...settings, due_soon_months: e.target.value })}
+              />
+              <span className="slider-value" style={{ fontWeight: 600, width: '60px', textAlign: 'right' }}>
+                {settings.due_soon_months} {parseInt(settings.due_soon_months) === 1 ? 'month' : 'months'}
+              </span>
+            </div>
           </div>
 
           <div className="settings-actions" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '32px' }}>

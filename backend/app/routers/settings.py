@@ -20,6 +20,7 @@ _DEFAULTS = {
     "edge_warning_threshold": 75.0,
     "min_trend_increase": 10.0,
     "calibration_month": 10,  # October
+    "due_soon_months": 2,     # Show devices due within 2 months in notifications
 }
 
 
@@ -27,6 +28,7 @@ class PredictionSettingsSchema(BaseModel):
     edge_warning_threshold: float  # % — readings above this trigger 1-year interval
     min_trend_increase: float      # % points per year — minimum rise to count as upward trend
     calibration_month: int         # 1–12 — month calibrations are scheduled each year
+    due_soon_months: int           # 1–12 — months ahead to consider "due soon" in notifications
 
 
 def _load_settings() -> dict:
@@ -71,6 +73,11 @@ async def update_prediction_settings(payload: PredictionSettingsSchema):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="calibration_month must be between 1 and 12.",
+        )
+    if not (1 <= payload.due_soon_months <= 12):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="due_soon_months must be between 1 and 12.",
         )
     data = payload.model_dump()
     _save_settings(data)

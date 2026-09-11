@@ -16,7 +16,7 @@ from app.models import Device, CalibrationRecord, CalibrationTest, EquipmentRisk
 from app.schemas import (
     DeviceSchema, DeviceCreateRequest, DeviceUpdateRequest,
     PredictedDeviceSchema, DevicePredictionResponse, YearScorePoint,
-    AlertItemSchema, AlertsResponseSchema,
+    AlertItemSchema, AlertsResponseSchema, DeviceTypeItemSchema,
 )
 from app.prediction import build_year_scores, predict_calibration_interval, stability_from_rule
 from app.services.risk_service import (
@@ -160,8 +160,11 @@ async def get_calibration_alerts(db: AsyncSession = Depends(get_db)):
             days_rem = 365 * iv
             pred_date_str = f"October {next_year}"
 
+        settings = get_settings()
+        due_soon_days = settings.get("due_soon_months", 2) * 30
+
         is_overdue = days_rem < 0
-        is_due_soon = 0 <= days_rem <= 90
+        is_due_soon = 0 <= days_rem <= due_soon_days
         is_high_risk_assess = dyn_risk_class == "CLASS_3" or dyn_risk_pct >= 60.0
         is_high_cal_risk = c_level == "HIGH" or (cal_failure_rate is not None and cal_failure_rate > 10.0) or most_recent_status == "FAIL"
 
@@ -266,8 +269,24 @@ def _next_calibration_date(interval_years: int, last_cal_year: int | None = None
     return f"{month_name} {next_year}"
 
 
-def _device_to_schema(device: Device) -> DeviceSchema:
+async def _device_to_schema(device: Device, db: AsyncSession | None = None) -> DeviceSchema:
     """Single source of truth for mapping a Device ORM row to DeviceSchema."""
+    current_year = date.today().year
+    max_year = None
+
+    if "calibration_records" in device.__dict__ and device.calibration_records:
+        years = [r.calibration_year for r in device.calibration_records if r.calibration_year is not None]
+        if years:
+            max_year = max(years)
+    elif db is not None and device.id is not None:
+        res = await db.execute(
+            select(func.max(CalibrationRecord.calibration_year))
+            .where(CalibrationRecord.device_id == device.id)
+        )
+        max_year = res.scalar()
+
+    is_predicted = (max_year is None) or (max_year <= current_year - 2)
+
     return DeviceSchema(
         id=device.id,
         serial_number=device.serial_number,
@@ -276,6 +295,8 @@ def _device_to_schema(device: Device) -> DeviceSchema:
         model=device.model,
         manufacturer=device.manufacturer,
         resolution=float(device.resolution) if device.resolution is not None else None,
+        is_predicted=is_predicted,
+        last_calibration_year=max_year,
     )
 
 
@@ -427,7 +448,7 @@ async def create_device(payload: DeviceCreateRequest, db: AsyncSession = Depends
     db.add(device)
     await db.commit()
     await db.refresh(device)
-    return _device_to_schema(device)
+    return await _device_to_schema(device, db)
 
 
 @router.get("/departments", response_model=list[str])
@@ -439,12 +460,17 @@ async def list_departments(db: AsyncSession = Depends(get_db)):
 
 @router.get("/device-types", response_model=list[str])
 async def list_device_types(db: AsyncSession = Depends(get_db)):
-    """Return the distinct device types present in devices and equipment_risk_configs tables."""
-    res1 = await db.execute(select(Device.device_type).distinct())
-    res2 = await db.execute(select(EquipmentRiskConfig.device_type).distinct())
-    types = set(row[0] for row in res1.all() if row[0])
-    types.update(row[0] for row in res2.all() if row[0])
-    return sorted(types)
+    """
+    Return distinct device types present in the calibration devices table only (excluding non-medical equipment).
+    """
+    stmt = (
+        select(Device.device_type)
+        .where(Device.device_type.isnot(None), Device.device_type != "")
+        .distinct()
+        .order_by(Device.device_type)
+    )
+    result = await db.execute(stmt)
+    return [row[0] for row in result.all() if row[0]]
 
 
 @router.get("/predictions", response_model=list[PredictedDeviceSchema])
@@ -507,7 +533,9 @@ async def get_devices_by_prediction(
         iv = prediction["interval_years"]
 
         # Use the last recorded calibration year so the date is anchored correctly.
+        current_year = date.today().year
         last_cal_year = year_scores[-1]["year"] if year_scores else None
+        is_predicted = (last_cal_year is None) or (last_cal_year <= current_year - 2)
 
         # Apply interval / stability filters before appending (skip mismatches early).
         if interval_years is not None and iv != interval_years:
@@ -526,6 +554,8 @@ async def get_devices_by_prediction(
             interval_years=iv,
             next_date=_next_calibration_date(iv, last_cal_year),
             message=prediction["message"],
+            is_predicted=is_predicted,
+            last_calibration_year=last_cal_year,
         ))
 
     return output
@@ -600,7 +630,7 @@ async def update_device(
         setattr(device, field, value)
     await db.commit()
     await db.refresh(device)
-    return _device_to_schema(device)
+    return await _device_to_schema(device, db)
 
 
 @router.get("/{serial_number:path}", response_model=DeviceSchema)
@@ -611,7 +641,7 @@ async def get_device(
 ):
     """Return static device info for a given serial number."""
     device = await _get_device_or_404(serial_number, db, department=department)
-    return _device_to_schema(device)
+    return await _device_to_schema(device, db)
 
 
 @router.delete("/{serial_number:path}", status_code=status.HTTP_204_NO_CONTENT)

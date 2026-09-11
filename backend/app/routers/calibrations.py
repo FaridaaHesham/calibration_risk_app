@@ -15,7 +15,9 @@ from app.models import Device, CalibrationRecord, CalibrationTest
 from app.schemas import (
     CalibrationRecordSchema,
     CalibrationRecordCreate,
+    CalibrationRecordUpdate,
     TestResultSchema,
+    TestResultUpdate,
     ChartDataResponse,
     BulkImportResponse,
 )
@@ -347,6 +349,143 @@ async def delete_calibration_record(record_id: int, db: AsyncSession = Depends(g
     await db.execute(delete(CalibrationTest).where(CalibrationTest.calibration_record_id == record_id))
     # Delete the calibration record itself
     await db.execute(delete(CalibrationRecord).where(CalibrationRecord.id == record_id))
+    await db.commit()
+    return None
+
+
+@router.put("/record/{record_id}", response_model=CalibrationRecordSchema)
+async def update_calibration_record(
+    record_id: int,
+    payload: CalibrationRecordUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update session metadata for a calibration record (year, certificate number, accessory info).
+    """
+    rec_result = await db.execute(
+        select(CalibrationRecord)
+        .where(CalibrationRecord.id == record_id)
+        .options(selectinload(CalibrationRecord.tests))
+    )
+    record = rec_result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Calibration record with ID {record_id} not found.",
+        )
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, val in update_data.items():
+        setattr(record, field, val)
+
+    await db.commit()
+    await db.refresh(record)
+
+    return CalibrationRecordSchema(
+        id=record.id,
+        calibration_year=record.calibration_year,
+        certificate_num=record.certificate_num,
+        result=record.result,
+        accessory_type=record.accessory_type,
+        accessory_model=record.accessory_model,
+        accessory_serial=record.accessory_serial,
+        tests=[
+            TestResultSchema(
+                id=t.id,
+                test_label=t.test_label,
+                test_point_unit=t.test_point_unit,
+                reference_value=float(t.reference_value) if t.reference_value is not None else None,
+                actual_value=float(t.actual_value) if t.actual_value is not None else None,
+                deviation=float(t.deviation) if t.deviation is not None else None,
+                min_value=float(t.min_value) if t.min_value is not None else None,
+                max_value=float(t.max_value) if t.max_value is not None else None,
+            )
+            for t in record.tests
+        ],
+    )
+
+
+@router.put("/test/{test_id}", response_model=TestResultSchema)
+async def update_calibration_test(
+    test_id: int,
+    payload: TestResultUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update a specific test measurement entry inside a calibration record.
+    Re-calculates deviation and overall Pass/Fail for the parent record.
+    """
+    test_result = await db.execute(select(CalibrationTest).where(CalibrationTest.id == test_id))
+    test = test_result.scalar_one_or_none()
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Calibration test entry with ID {test_id} not found.",
+        )
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, val in update_data.items():
+        setattr(test, field, val)
+
+    # Re-calculate deviation if reference_value or actual_value updated and deviation was not explicitly supplied
+    if "deviation" not in update_data and test.reference_value is not None and test.actual_value is not None:
+        test.deviation = test.reference_value - test.actual_value
+
+    await db.flush()
+
+    # Recompute overall result for the parent calibration record
+    rec_result = await db.execute(
+        select(CalibrationRecord)
+        .where(CalibrationRecord.id == test.calibration_record_id)
+        .options(selectinload(CalibrationRecord.tests))
+    )
+    parent_record = rec_result.scalar_one_or_none()
+    if parent_record:
+        parent_record.result = _compute_overall_result(parent_record.tests)
+
+    await db.commit()
+    await db.refresh(test)
+
+    return TestResultSchema(
+        id=test.id,
+        test_label=test.test_label,
+        test_point_unit=test.test_point_unit,
+        reference_value=float(test.reference_value) if test.reference_value is not None else None,
+        actual_value=float(test.actual_value) if test.actual_value is not None else None,
+        deviation=float(test.deviation) if test.deviation is not None else None,
+        min_value=float(test.min_value) if test.min_value is not None else None,
+        max_value=float(test.max_value) if test.max_value is not None else None,
+    )
+
+
+@router.delete("/test/{test_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_calibration_test(test_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Delete a single test measurement entry from a calibration record.
+    Recomputes the overall Pass/Fail result for the remaining tests in the record.
+    """
+    test_result = await db.execute(select(CalibrationTest).where(CalibrationTest.id == test_id))
+    test = test_result.scalar_one_or_none()
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Calibration test entry with ID {test_id} not found.",
+        )
+
+    record_id = test.calibration_record_id
+    await db.delete(test)
+    await db.flush()
+
+    # Recompute parent record result
+    rec_result = await db.execute(
+        select(CalibrationRecord)
+        .where(CalibrationRecord.id == record_id)
+        .options(selectinload(CalibrationRecord.tests))
+    )
+    parent_record = rec_result.scalar_one_or_none()
+    if parent_record:
+        parent_record.result = _compute_overall_result(parent_record.tests)
+
     await db.commit()
     return None
 

@@ -39,6 +39,10 @@ export async function getDevice(serialNumber, department = null) {
       model: d.model,
       manufacturer: d.manufacturer,
       resolution: d.resolution,
+      isPredicted: Boolean(d.is_predicted),
+      is_predicted: Boolean(d.is_predicted),
+      lastCalibrationYear: d.last_calibration_year,
+      last_calibration_year: d.last_calibration_year,
     };
   } catch (err) {
     if (err.response?.status === 404) {
@@ -150,6 +154,41 @@ export async function deleteCalibrationRecord(recordId) {
     const detail = err.response?.data?.detail;
     throw new Error(
       detail || 'Failed to delete calibration record. Please try again.'
+    );
+  }
+}
+
+export async function updateCalibrationRecord(recordId, payload) {
+  try {
+    const res = await apiClient.put(`/api/calibrations/record/${recordId}`, payload);
+    return res.data;
+  } catch (err) {
+    const detail = err.response?.data?.detail;
+    throw new Error(
+      detail || 'Failed to update calibration record. Please try again.'
+    );
+  }
+}
+
+export async function updateCalibrationTest(testId, payload) {
+  try {
+    const res = await apiClient.put(`/api/calibrations/test/${testId}`, payload);
+    return res.data;
+  } catch (err) {
+    const detail = err.response?.data?.detail;
+    throw new Error(
+      detail || 'Failed to update test measurement entry. Please try again.'
+    );
+  }
+}
+
+export async function deleteCalibrationTest(testId) {
+  try {
+    await apiClient.delete(`/api/calibrations/test/${testId}`);
+  } catch (err) {
+    const detail = err.response?.data?.detail;
+    throw new Error(
+      detail || 'Failed to delete test measurement entry. Please try again.'
     );
   }
 }

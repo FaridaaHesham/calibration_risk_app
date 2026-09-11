@@ -325,3 +325,19 @@ a:hover { text-decoration: underline; }
   font-size: 0.875rem;
   max-width: 280px;
 }
+
+/* ── Predicted Device Badge ───────────────────────────────── */
+.badge-predicted {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  margin-left: 6px;
+  white-space: nowrap;
+}
+

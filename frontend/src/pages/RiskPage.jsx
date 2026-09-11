@@ -1002,8 +1002,7 @@ export default function RiskPage() {
                         <div className="classification-summary-box">
                           <div className="summary-box-header">
                             <div className="summary-box-header-title">
-                              <span className="summary-calc-icon">⚡</span>
-                              <strong>Excel Risk Formula &amp; Parameters</strong>
+                              <strong>Risk Formula &amp; Parameters</strong>
                               <span className="formula-type-tag">
                                 {isNonMedical ? 'Non-Medical Sheet (Max: 27.77)' : 'Medical Sheet (Max: 36.0)'}
                               </span>
@@ -1022,7 +1021,7 @@ export default function RiskPage() {
                           {/* Group 1: Configurable Input Parameters */}
                           <div className="summary-subgroup">
                             <div className="summary-subgroup-title">
-                              <span>📝 Input Parameters (المعايير الأساسية المدخلة)</span>
+                              <span>Input Parameters (المعايير الأساسية المدخلة)</span>
                               <span className="subgroup-badge input-badge">Editable</span>
                             </div>
                             <div className="classification-summary-grid">
@@ -1052,7 +1051,7 @@ export default function RiskPage() {
                           {/* Group 2: Calculated Logic Output Metrics */}
                           <div className="summary-subgroup">
                             <div className="summary-subgroup-title">
-                              <span>🔒 Calculated Formula Results (النتائج المحسوبة بالمعادلات)</span>
+                              <span>Calculated Formula Results (النتائج المحسوبة بالمعادلات)</span>
                               <span className="subgroup-badge calc-badge">Auto-Calculated by Backend</span>
                             </div>
                             <div className="classification-summary-grid">
@@ -1206,7 +1205,7 @@ export default function RiskPage() {
                 {registerUnitSuccess && <div className="edit-form-success">Device unit registered successfully!</div>}
 
                 <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px 14px', fontSize: '0.84rem', color: '#1e40af', lineHeight: 1.5 }}>
-                  💡 <strong>Register a Physical Machine:</strong> Enter the unit's serial number and department to link it to its equipment risk classification. It will immediately appear in your dashboard.
+                   <strong>Register a Physical Machine:</strong> Enter the unit's serial number and department to link it to its equipment risk classification. It will immediately appear in your dashboard.
                 </div>
 
                 <div className="edit-section-title">Unit Identification (English)</div>
@@ -1292,7 +1291,7 @@ export default function RiskPage() {
                 {/* Risk Scoring Guide */}
                 <div className="risk-scoring-guide-box">
                   <div className="guide-box-header">
-                    <span><strong>Excel Risk Criteria Guide (دليل معايير التقييم الإكسيل):</strong></span>
+                    <span><strong>Risk Criteria Guide (دليل معايير التقييم الإكسيل):</strong></span>
                   </div>
                   <div className="guide-box-content">
                     <div className="guide-col">
@@ -1715,7 +1714,7 @@ export default function RiskPage() {
                   {/* Risk Scoring Guide Card */}
                   <div className="risk-scoring-guide-box">
                     <div className="guide-box-header">
-                      <span><strong>Excel Risk Criteria Guide (دليل معايير التقييم الإكسيل):</strong></span>
+                      <span><strong>Risk Criteria Guide (دليل معايير التقييم الإكسيل):</strong></span>
                     </div>
                     <div className="guide-box-content">
                       <div className="guide-col">

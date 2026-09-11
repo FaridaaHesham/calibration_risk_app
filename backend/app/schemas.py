@@ -33,6 +33,8 @@ class DeviceSchema(BaseModel):
     model: Optional[str]
     manufacturer: Optional[str]
     resolution: Optional[float]
+    is_predicted: bool = False
+    last_calibration_year: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -55,6 +57,15 @@ class DeviceUpdateRequest(BaseModel):
     model: Optional[str] = None
     manufacturer: Optional[str] = None
     resolution: Optional[float] = None
+
+
+class DeviceTypeItemSchema(BaseModel):
+    device_type: str
+    is_predicted: bool = False
+    last_calibration_year: Optional[int] = None
+
+    class Config:
+        from_attributes = True
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +123,8 @@ class PredictedDeviceSchema(BaseModel):
     interval_years: int
     next_date: str
     message: str
+    is_predicted: bool = False
+    last_calibration_year: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------
@@ -144,6 +157,24 @@ class CalibrationRecordSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TestResultUpdate(BaseModel):
+    test_label: Optional[str] = None
+    test_point_unit: Optional[str] = None
+    reference_value: Optional[float] = None
+    actual_value: Optional[float] = None
+    deviation: Optional[float] = None
+    min_value: Optional[float] = None
+    max_value: Optional[float] = None
+
+
+class CalibrationRecordUpdate(BaseModel):
+    calibration_year: Optional[int] = None
+    certificate_num: Optional[str] = None
+    accessory_type: Optional[str] = None
+    accessory_model: Optional[str] = None
+    accessory_serial: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

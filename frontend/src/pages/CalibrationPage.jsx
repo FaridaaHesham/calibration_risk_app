@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   getDevice,
@@ -9,6 +9,9 @@ import {
   updateDevice,
   deleteDevice,
   deleteCalibrationRecord,
+  updateCalibrationRecord,
+  updateCalibrationTest,
+  deleteCalibrationTest,
 } from '../api/devices';
 import DeviceInfoCard from '../components/DeviceInfoCard';
 import ControlChart from '../components/ControlChart';
@@ -23,13 +26,6 @@ const SearchIcon = () => (
   </svg>
 );
 
-const UploadIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-    <polyline points="17 8 12 3 7 8"></polyline>
-    <line x1="12" y1="3" x2="12" y2="15"></line>
-  </svg>
-);
 
 const DownloadIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -50,6 +46,9 @@ export default function CalibrationPage() {
   const [chartData, setChartData]    = useState(null);
   const [history, setHistory]        = useState([]);
   const [selectedAccessory, setSelectedAccessory] = useState('');
+
+  // Track last searched serial number to avoid redundant re-fetches when toggling tabs
+  const lastSearchedSerialRef = useRef(null);
 
   // Prediction filter state
   const [selectedInterval, setSelectedInterval] = useState(null);
@@ -80,21 +79,23 @@ export default function CalibrationPage() {
   }, []);
 
   useEffect(() => {
-    const query = searchParams.get('search') || searchParams.get('serial');
+    const query = (searchParams.get('search') || searchParams.get('serial') || '').trim();
     const tab = searchParams.get('tab');
+
     if (tab && ['direct', 'prediction', 'add'].includes(tab)) {
       setActiveTab(tab);
-    } else if (!tab && !query) {
+    } else {
       setActiveTab('direct');
     }
 
-    if (query) {
-      const serial = query.trim();
-      setSerialInput(serial);
-      if (!tab) setActiveTab('direct');
-      executeSearch(serial);
-    } else {
-      // If back button took us to a URL without serial, clear device results
+    if (query && (!tab || tab === 'direct')) {
+      setSerialInput(query);
+      if (lastSearchedSerialRef.current !== query) {
+        lastSearchedSerialRef.current = query;
+        executeSearch(query);
+      }
+    } else if (!query && (!tab || tab === 'direct')) {
+      lastSearchedSerialRef.current = null;
       setDevice(null);
       setChartData(null);
       setHistory([]);
@@ -105,19 +106,16 @@ export default function CalibrationPage() {
 
   function handleTabChange(tab) {
     setActiveTab(tab);
-    const params = new URLSearchParams(searchParams);
-    if (tab === 'direct') {
-      params.delete('tab');
-    } else {
+    const params = new URLSearchParams();
+    if (tab !== 'direct') {
       params.set('tab', tab);
+    } else if (serialInput.trim()) {
+      params.set('serial', serialInput.trim());
     }
     setSearchParams(params);
   }
 
   // Reactive fetch: fires whenever the committed search text, filters, or tab changes.
-  // All values read inside the effect are listed in the dep array — no stale closures.
-  // A cancellation flag ensures that a slow earlier response can never overwrite the
-  // results of a faster later one (avoids race conditions on quick successive searches).
   useEffect(() => {
     if (activeTab !== 'prediction' || !hasSearched) return;
 
@@ -154,7 +152,8 @@ export default function CalibrationPage() {
   }
 
   async function executeSearch(serial) {
-    if (!serial.trim()) return;
+    const q = (serial || '').trim();
+    if (!q) return;
     setLoading(true);
     setNotFound(false);
     setDevice(null);
@@ -163,9 +162,9 @@ export default function CalibrationPage() {
 
     try {
       const [dev, chart, hist] = await Promise.all([
-        getDevice(serial.trim(), department),
-        getChartData(serial.trim()),
-        getCalibrationHistory(serial.trim()),
+        getDevice(q, department),
+        getChartData(q),
+        getCalibrationHistory(q),
       ]);
 
       if (!dev) {
@@ -174,15 +173,10 @@ export default function CalibrationPage() {
         setDevice(dev);
         setChartData(chart);
         setHistory(hist);
-        setSearchParams({ serial: serial.trim() }, { replace: true });
 
         if (chart?.accessories) {
           const keys = Object.keys(chart.accessories);
           if (keys.length > 0) {
-            // Prefer "Main Device" if present; otherwise default to whichever
-            // accessory track has the longest history, so the page opens on
-            // the most complete, most meaningful chart rather than whatever
-            // key happened to come back first.
             const defaultKey = keys.includes('Main Device')
               ? 'Main Device'
               : keys.reduce((best, key) =>
@@ -206,21 +200,24 @@ export default function CalibrationPage() {
   async function handleSearch(e) {
     e.preventDefault();
     if (!serialInput.trim()) return;
-    const params = new URLSearchParams(searchParams);
-    params.set('serial', serialInput.trim());
-    params.delete('tab');
+    const q = serialInput.trim();
+    lastSearchedSerialRef.current = q;
+    setActiveTab('direct');
+    const params = new URLSearchParams();
+    params.set('serial', q);
     setSearchParams(params);
-    await executeSearch(serialInput);
+    await executeSearch(q);
   }
 
   function handleSelectPredDevice(sn) {
-    setSerialInput(sn);
+    const q = (sn || '').trim();
+    setSerialInput(q);
+    lastSearchedSerialRef.current = q;
     setActiveTab('direct');
-    const params = new URLSearchParams(searchParams);
-    params.set('serial', sn);
-    params.delete('tab');
+    const params = new URLSearchParams();
+    params.set('serial', q);
     setSearchParams(params);
-    executeSearch(sn);
+    executeSearch(q);
   }
 
   // ── Edit-device modal (opened from the Search tab's results table) ──────
@@ -273,7 +270,9 @@ export default function CalibrationPage() {
         setHistory([]);
         setNotFound(false);
         setSerialInput('');
-        setSearchParams({}, { replace: true });
+        if (activeTab === 'direct') {
+          setSearchParams({}, { replace: true });
+        }
       }
       if (editingDevice && editingDevice.serialNumber === serialNumber) {
         closeEditModal();
@@ -290,10 +289,12 @@ export default function CalibrationPage() {
 
   function handleViewDeviceAfterAdd(serial) {
     if (!serial) return;
+    const q = serial.trim();
+    lastSearchedSerialRef.current = q;
     setActiveTab('direct');
-    setSerialInput(serial);
-    setSearchParams({ serial: serial.trim() }, { replace: true });
-    executeSearch(serial);
+    setSerialInput(q);
+    setSearchParams({ serial: q }, { replace: true });
+    executeSearch(q);
   }
 
   // ── Delete a single calibration session (year record + its tests) ─────────
@@ -319,6 +320,71 @@ export default function CalibrationPage() {
       }
     } catch (err) {
       setDeleteError(err.message || 'Failed to delete calibration record.');
+    }
+  }
+
+  // ── Update session metadata for a calibration record ───────────────────────
+  async function handleUpdateRecord(recordId, payload) {
+    if (!recordId) return;
+    setDeleteError('');
+    try {
+      await updateCalibrationRecord(recordId, payload);
+      if (device?.serialNumber) {
+        const [chart, hist] = await Promise.all([
+          getChartData(device.serialNumber),
+          getCalibrationHistory(device.serialNumber),
+        ]);
+        setChartData(chart);
+        setHistory(hist || []);
+      }
+    } catch (err) {
+      setDeleteError(err.message || 'Failed to update calibration session.');
+      throw err;
+    }
+  }
+
+  // ── Delete a single test measurement entry ────────────────────────────────
+  async function handleDeleteTest(testId, testLabel) {
+    if (!testId) return;
+    const labelStr = testLabel ? `"${testLabel}"` : 'this measurement entry';
+    const confirmed = window.confirm(
+      `Delete test entry ${labelStr}? This will recalculate the session result and control chart stability.`
+    );
+    if (!confirmed) return;
+
+    setDeleteError('');
+    try {
+      await deleteCalibrationTest(testId);
+      if (device?.serialNumber) {
+        const [chart, hist] = await Promise.all([
+          getChartData(device.serialNumber),
+          getCalibrationHistory(device.serialNumber),
+        ]);
+        setChartData(chart);
+        setHistory(hist || []);
+      }
+    } catch (err) {
+      setDeleteError(err.message || 'Failed to delete test entry.');
+    }
+  }
+
+  // ── Update a single test measurement entry ────────────────────────────────
+  async function handleUpdateTest(testId, payload) {
+    if (!testId) return;
+    setDeleteError('');
+    try {
+      await updateCalibrationTest(testId, payload);
+      if (device?.serialNumber) {
+        const [chart, hist] = await Promise.all([
+          getChartData(device.serialNumber),
+          getCalibrationHistory(device.serialNumber),
+        ]);
+        setChartData(chart);
+        setHistory(hist || []);
+      }
+    } catch (err) {
+      setDeleteError(err.message || 'Failed to update test entry.');
+      throw err;
     }
   }
 
@@ -523,28 +589,28 @@ export default function CalibrationPage() {
               <button
                 type="button"
                 className={`pred-filter-btn ${selectedInterval === null && predStability === null ? 'active' : ''}`}
-                onClick={() => { setSelectedInterval(null); setPredStability(null); }}
+                onClick={() => { setSelectedInterval(null); setPredStability(null); setHasSearched(true); }}
               >
                 All Devices
               </button>
               <button
                 type="button"
                 className={`pred-filter-btn ${selectedInterval === 2 && predStability === 'stable' ? 'active' : ''}`}
-                onClick={() => { setSelectedInterval(2); setPredStability('stable'); }}
+                onClick={() => { setSelectedInterval(2); setPredStability('stable'); setHasSearched(true); }}
               >
                 Predict: 2 Years Interval (Stable)
               </button>
               <button
                 type="button"
                 className={`pred-filter-btn ${selectedInterval === 1 && predStability === 'marginal' ? 'active' : ''}`}
-                onClick={() => { setSelectedInterval(1); setPredStability('marginal'); }}
+                onClick={() => { setSelectedInterval(1); setPredStability('marginal'); setHasSearched(true); }}
               >
                 Predict: 1 Year Interval (Marginal)
               </button>
               <button
                 type="button"
                 className={`pred-filter-btn ${predStability === 'unstable' ? 'active' : ''}`}
-                onClick={() => { setSelectedInterval(null); setPredStability('unstable'); }}
+                onClick={() => { setSelectedInterval(null); setPredStability('unstable'); setHasSearched(true); }}
               >
                 Predict: Unstable (Immediate)
               </button>
@@ -579,7 +645,12 @@ export default function CalibrationPage() {
                   <tbody>
                     {predDevices.map((dev) => (
                       <tr key={dev.serial_number}>
-                        <td style={{ fontWeight: 600, color: 'var(--primary-light)' }}>{dev.serial_number}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--primary-light)' }}>
+                          {dev.serial_number}
+                          {(dev.is_predicted || dev.isPredicted) && (
+                            <span className="badge-predicted">متكهن</span>
+                          )}
+                        </td>
                         <td>{dev.department}</td>
                         <td>{dev.device_type} ({dev.model})</td>
                         <td>
@@ -809,7 +880,12 @@ export default function CalibrationPage() {
               <div style={{ display: 'flex', gap: 14 }}>
                 <StepBadge n={2} />
                 <div>
-                  <h2 className="cal-section-title">Device Information</h2>
+                  <h2 className="cal-section-title">
+                    Device Information
+                    {(device.is_predicted || device.isPredicted) && (
+                      <span className="badge-predicted" style={{ verticalAlign: 'middle', marginLeft: 10 }}>متكهن</span>
+                    )}
+                  </h2>
                 </div>
               </div>
               <button
@@ -885,6 +961,9 @@ export default function CalibrationPage() {
                 records={history}
                 serialNumber={device.serialNumber}
                 onDeleteRecord={handleDeleteRecord}
+                onUpdateRecord={handleUpdateRecord}
+                onDeleteTest={handleDeleteTest}
+                onUpdateTest={handleUpdateTest}
               />
             </div>
           </section>

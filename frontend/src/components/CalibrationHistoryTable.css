@@ -243,3 +243,143 @@
   border-color: var(--primary-light);
 }
 
+.btn-edit-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--primary);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-edit-sm:hover {
+  background: #ebf5fb;
+  border-color: var(--primary-light);
+}
+
+.btn-save-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--success, #16a34a);
+  border: 1px solid var(--success, #16a34a);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-save-sm:hover {
+  background: #15803d;
+}
+
+.btn-cancel-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-cancel-sm:hover {
+  background: #f1f5f9;
+  color: var(--text-primary);
+}
+
+/* ── Inline Editing Row Controls ─────────────────────────────── */
+.sub-row--editing {
+  background: #fffbeb !important;
+}
+
+.sub-actions-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.sub-actions-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.sub-edit-input {
+  width: 100%;
+  padding: 3px 7px;
+  font-size: 0.8rem;
+  border: 1px solid var(--primary-light, #3b82f6);
+  border-radius: 4px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.sub-edit-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.sub-edit-input-sm {
+  max-width: 65px;
+}
+
+.sub-edit-input-num {
+  max-width: 75px;
+  text-align: right;
+}
+
+.sub-edit-tolerance-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.sub-edit-error {
+  color: #dc2626;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 4px 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+}
+
+/* ── Session Edit Form ────────────────────────────────────────── */
+.session-edit-box {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+
+.session-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.session-edit-grid label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 3px;
+}
+

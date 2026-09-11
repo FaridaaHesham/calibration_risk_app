@@ -168,7 +168,17 @@ export default function DeviceInfoCard({ device, loading, onDeviceUpdated }) {
         </form>
       ) : (
         <div className="device-card-body">
-          <InfoRow label="Serial Number"  value={device.serialNumber} />
+          <InfoRow
+            label="Serial Number"
+            value={
+              <span>
+                {device.serialNumber}
+                {(device.is_predicted || device.isPredicted) && (
+                  <span className="badge-predicted" style={{ marginLeft: 8 }}>متكهن</span>
+                )}
+              </span>
+            }
+          />
           <InfoRow label="Department"     value={device.department || '—'} />
           <InfoRow label="Device Type"    value={device.deviceType} />
           <InfoRow label="Model"          value={device.model || '—'} />
