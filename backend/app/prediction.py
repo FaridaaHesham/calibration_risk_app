@@ -339,6 +339,76 @@ def predict_calibration_interval(
     }
 
 
+def select_worst_case_group(
+    grouped_records: dict[str, list[dict]],
+    edge_warning_threshold: float | None = None,
+    min_trend_increase: float | None = None,
+) -> tuple[str | None, list[dict], dict]:
+    """
+    Given calibration records grouped by accessory/track (e.g. different
+    ultrasound probes swapped in and out of the same main unit over the
+    years), compute the year-by-year score timeline and predicted interval
+    for EVERY group, then return the single worst-case group's
+    (accessory_name, year_scores, prediction).
+
+    "Worst" means: shortest recommended interval first; on a tie, whichever
+    group's most recent score is closer to the failure limit. This mirrors
+    the "weakest link" principle used elsewhere in this module (see
+    visit_score()) — a device with multiple tracked accessories should never
+    look safer overall than its worst-performing one.
+
+    Groups with fewer than 2 calibration visits are only used as a
+    last resort (when EVERY group has fewer than 2 visits), since a
+    single-visit "prediction" is just the safe default and shouldn't
+    out-rank a group that actually has trend data to judge.
+
+    This is the single source of truth for that selection — it used to be
+    duplicated across devices.py, and reimplemented differently (and less
+    correctly — just picking whichever group happened to be first) in three
+    other places, which meant the same device could show a different
+    stability label / due date on the alerts list vs. the risk dashboard vs.
+    its own prediction page. Every caller should go through this function.
+
+    Returns (None, [], predict_calibration_interval([])) if there are no
+    groups at all.
+    """
+    if not grouped_records:
+        return None, [], predict_calibration_interval(
+            [], edge_warning_threshold=edge_warning_threshold, min_trend_increase=min_trend_increase
+        )
+
+    group_results: dict[str, tuple[list[dict], dict]] = {}
+    for acc_type, raw_records in grouped_records.items():
+        year_scores = build_year_scores(raw_records)
+        prediction = predict_calibration_interval(
+            year_scores,
+            edge_warning_threshold=edge_warning_threshold,
+            min_trend_increase=min_trend_increase,
+        )
+        group_results[acc_type] = (year_scores, prediction)
+
+    eligible = {k: v for k, v in group_results.items() if len(v[0]) >= 2}
+    candidates = eligible if eligible else group_results
+
+    worst_key = None
+    for acc_type, (year_scores, prediction) in candidates.items():
+        if worst_key is None:
+            worst_key = acc_type
+            continue
+        current_iv = candidates[worst_key][1]["interval_years"]
+        this_iv = prediction["interval_years"]
+        if this_iv < current_iv:
+            worst_key = acc_type
+        elif this_iv == current_iv:
+            current_score = candidates[worst_key][0][-1]["score"] if candidates[worst_key][0] else 0
+            this_score = year_scores[-1]["score"] if year_scores else 0
+            if this_score > current_score:
+                worst_key = acc_type
+
+    year_scores, prediction = group_results[worst_key]
+    return worst_key, year_scores, prediction
+
+
 def stability_from_rule(rule: str, latest_score: float) -> tuple[str, str]:
     """
     Single source of truth for mapping a prediction rule to a

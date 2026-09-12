@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models import Device, CalibrationRecord, CalibrationTest
+from app.models import Device, CalibrationRecord, CalibrationTest, ToleranceRule
 from app.schemas import (
     CalibrationRecordSchema,
     CalibrationRecordCreate,
@@ -23,8 +23,9 @@ from app.schemas import (
 )
 from app.prediction import build_year_scores, predict_calibration_interval, stability_from_rule
 from app.routers.settings import get_settings
+from app.routers.auth import get_current_user
 
-router = APIRouter(prefix="/api/calibrations", tags=["calibrations"])
+router = APIRouter(prefix="/api/calibrations", tags=["calibrations"], dependencies=[Depends(get_current_user)])
 
 
 async def _get_device_by_serial(serial_number: str, db: AsyncSession) -> Device:
@@ -520,7 +521,19 @@ async def bulk_upload_calibrations(
             )
 
         df = df.where(pd.notnull(df), None)
-        
+
+        # Preload configured tolerance rules once, keyed by lowercased test
+        # label, so rows that omit min_value/max_value get the SAME
+        # tolerance band used everywhere else in the app for that test type,
+        # instead of a blanket, unconfigurable ±5% guess.
+        tol_result = await db.execute(select(ToleranceRule))
+        tolerance_rules: dict[str, ToleranceRule] = {
+            tr.test_label.strip().lower(): tr
+            for tr in tol_result.scalars().all()
+            if tr.test_label
+        }
+        missing_tolerance_labels: set[str] = set()
+
         # We process row by row, caching fetched devices and records
         devices_cache = {}
         records_cache = {}
@@ -591,9 +604,32 @@ async def bulk_upload_calibrations(
                     act_val = float(act_val_raw)
                     test_label = str(row["test_label"]).strip()
                     deviation = float(row.get("deviation", ref_val - act_val)) if pd.notna(row.get("deviation")) else (ref_val - act_val)
-                    
-                    min_val = float(row.get("min_value", ref_val * 0.95)) if pd.notna(row.get("min_value")) else (ref_val * 0.95)
-                    max_val = float(row.get("max_value", ref_val * 1.05)) if pd.notna(row.get("max_value")) else (ref_val * 1.05)
+
+                    # Derive min/max from the configured ToleranceRule for this
+                    # test label when the file doesn't give an explicit value
+                    # for that side. Only fall back to the blanket ±10%
+                    # default when no rule is configured for this label at
+                    # all (and note it in the response so it's visible,
+                    # rather than silently applying an arbitrary tolerance).
+                    # This matches the default used by the "Add Calibration
+                    # Data" form for the same situation — see
+                    # AddCalibrationForm.jsx's DEFAULT_TOLERANCE_PERCENT.
+                    rule = tolerance_rules.get(test_label.lower())
+                    if rule:
+                        tol_value = float(rule.tolerance_value)
+                        if rule.tolerance_type == "percentage":
+                            rule_min = ref_val * (1 - tol_value / 100.0)
+                            rule_max = ref_val * (1 + tol_value / 100.0)
+                        else:  # "absolute"
+                            rule_min = ref_val - tol_value
+                            rule_max = ref_val + tol_value
+                    else:
+                        missing_tolerance_labels.add(test_label)
+                        rule_min = ref_val * 0.90
+                        rule_max = ref_val * 1.10
+
+                    min_val = float(row.get("min_value")) if pd.notna(row.get("min_value")) else rule_min
+                    max_val = float(row.get("max_value")) if pd.notna(row.get("max_value")) else rule_max
                     
                     # Avoid duplicates in same year record
                     exist_test = await db.execute(
@@ -630,6 +666,15 @@ async def bulk_upload_calibrations(
             record.result = _compute_overall_result(tests_result.scalars().all())
 
         await db.commit()
+
+        if missing_tolerance_labels:
+            errors.insert(
+                0,
+                "No tolerance rule configured for: " + ", ".join(sorted(missing_tolerance_labels)) +
+                " — used a default ±10% band where the file didn't specify min/max. "
+                "Add these under Tolerance Rules for accurate pass/fail and drift scoring.",
+            )
+
         return BulkImportResponse(
             success=True,
             imported_devices=imported_devs,

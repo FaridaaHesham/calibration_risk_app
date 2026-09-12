@@ -3,13 +3,19 @@ routers/settings.py — Prediction engine settings endpoint.
 
 Settings are persisted in a local JSON file alongside the backend code.
 This avoids needing a DB migration while still surviving server restarts.
+
+Gated to admins only, matching the frontend's AdminRoute-protected
+Settings page — previously these endpoints had no auth check at all.
 """
 import json
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+
+from app.models import User
+from app.routers.auth import require_admin
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -51,14 +57,17 @@ def _save_settings(data: dict) -> None:
 
 
 @router.get("/prediction", response_model=PredictionSettingsSchema)
-async def get_prediction_settings():
-    """Return the current prediction engine settings."""
+async def get_prediction_settings(_admin: User = Depends(require_admin)):
+    """Return the current prediction engine settings. Admins only."""
     return _load_settings()
 
 
 @router.put("/prediction", response_model=PredictionSettingsSchema)
-async def update_prediction_settings(payload: PredictionSettingsSchema):
-    """Update prediction engine settings. Persisted across server restarts."""
+async def update_prediction_settings(
+    payload: PredictionSettingsSchema,
+    _admin: User = Depends(require_admin),
+):
+    """Update prediction engine settings. Persisted across server restarts. Admins only."""
     if not (0 < payload.edge_warning_threshold <= 100):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

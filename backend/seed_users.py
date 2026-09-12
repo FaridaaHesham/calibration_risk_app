@@ -21,7 +21,13 @@ pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 ADMIN_USERNAME  = "adam_admin"
 ADMIN_PASSWORD  = "@9112345691@"
 ADMIN_FULL_NAME = "Adam International Hospital Admin"
-ADMIN_ROLE      = "Biomedical Engineer"
+# Must contain "admin" (case-insensitive) — this is how the backend's
+# require_admin dependency (app/routers/auth.py) and the Users page in the
+# frontend both decide who gets admin-only access (user management,
+# settings). Deployments that already ran this script with the old
+# "Biomedical Engineer" role are fixed up automatically on next backend
+# startup (see the migration in app/main.py's lifespan).
+ADMIN_ROLE      = "Admin"
 
 
 CREATE_USERS_TABLE = """

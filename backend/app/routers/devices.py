@@ -18,15 +18,20 @@ from app.schemas import (
     PredictedDeviceSchema, DevicePredictionResponse, YearScorePoint,
     AlertItemSchema, AlertsResponseSchema, DeviceTypeItemSchema,
 )
-from app.prediction import build_year_scores, predict_calibration_interval, stability_from_rule
+from app.prediction import (
+    predict_calibration_interval,
+    stability_from_rule,
+    select_worst_case_group,
+)
 from app.services.risk_service import (
     calculate_calibration_risk_level,
     calculate_risk_class,
     calculate_excel_risk,
 )
 from app.routers.settings import get_settings
+from app.routers.auth import get_current_user
 
-router = APIRouter(prefix="/api/devices", tags=["devices"])
+router = APIRouter(prefix="/api/devices", tags=["devices"], dependencies=[Depends(get_current_user)])
 _log = logging.getLogger(__name__)
 
 
@@ -146,8 +151,9 @@ async def get_calibration_alerts(db: AsyncSession = Depends(get_db)):
             if not grouped:
                 iv = 1
             else:
-                ys = build_year_scores(list(grouped.values())[0])
-                pred = predict_calibration_interval(ys)
+                # Use the worst-case accessory/track, not just whichever one
+                # happened to appear first — see select_worst_case_group().
+                _, _, pred = select_worst_case_group(grouped)
                 iv = pred["interval_years"]
 
         if last_year:
@@ -389,31 +395,11 @@ async def _build_prediction_for_device(device: Device, db: AsyncSession) -> tupl
     if not grouped_records:
         return [], predict_calibration_interval([])
 
-    group_results: dict[str, tuple[list[dict], dict]] = {}
-    for acc_type, raw_records in grouped_records.items():
-        year_scores = build_year_scores(raw_records)
-        prediction = predict_calibration_interval(year_scores)
-        group_results[acc_type] = (year_scores, prediction)
-
-    eligible = {k: v for k, v in group_results.items() if len(v[0]) >= 2}
-    candidates = eligible if eligible else group_results
-
-    worst_key = None
-    for acc_type, (year_scores, prediction) in candidates.items():
-        if worst_key is None:
-            worst_key = acc_type
-            continue
-        current_iv = candidates[worst_key][1]["interval_years"]
-        this_iv = prediction["interval_years"]
-        if this_iv < current_iv:
-            worst_key = acc_type
-        elif this_iv == current_iv:
-            current_score = candidates[worst_key][0][-1]["score"] if candidates[worst_key][0] else 0
-            this_score = year_scores[-1]["score"] if year_scores else 0
-            if this_score > current_score:
-                worst_key = acc_type
-
-    return group_results[worst_key]
+    # Delegate to the shared worst-case-accessory selector (app/prediction.py)
+    # so this matches the logic used everywhere else a device's prediction
+    # is computed (alerts list, risk dashboard, device risk detail).
+    _, year_scores, prediction = select_worst_case_group(grouped_records)
+    return year_scores, prediction
 
 
 # -- Endpoints ---------------------------------------------------------------
@@ -434,7 +420,7 @@ async def create_device(payload: DeviceCreateRequest, db: AsyncSession = Depends
     if existing.scalars().first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"A device with serial number ''{payload.serial_number}'' already exists.",
+            detail=f"A device with serial number '{payload.serial_number}' already exists.",
         )
 
     device = Device(

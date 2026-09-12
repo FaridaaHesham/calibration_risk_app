@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Device, CalibrationRecord, CalibrationTest, EquipmentRiskConfig
-from app.prediction import predict_calibration_interval, build_year_scores
+from app.prediction import predict_calibration_interval, build_year_scores, select_worst_case_group
 
 _log = logging.getLogger(__name__)
 
@@ -355,9 +355,9 @@ async def compute_device_prediction_status(device: Device, db: AsyncSession) -> 
             predicted_iv = 1
             rule = "default"
         else:
-            first_group = list(grouped.values())[0]
-            scores = build_year_scores(first_group)
-            pred = predict_calibration_interval(scores)
+            # Use the worst-case accessory/track, matching the logic used
+            # for the device's own prediction page (see select_worst_case_group).
+            _, scores, pred = select_worst_case_group(grouped)
             predicted_iv = pred["interval_years"]
             rule = pred["rule"]
 
@@ -624,9 +624,9 @@ async def get_risk_dashboard_summary(db: AsyncSession) -> dict:
             if not grouped:
                 predicted_iv = 1
             else:
-                first_group = list(grouped.values())[0]
-                scores = build_year_scores(first_group)
-                pred_result = predict_calibration_interval(scores)
+                # Use the worst-case accessory/track — see select_worst_case_group()
+                # in app/prediction.py, the single source of truth for this pick.
+                _, scores, pred_result = select_worst_case_group(grouped)
                 predicted_iv = pred_result["interval_years"]
 
         if last_year:
@@ -730,4 +730,3 @@ async def get_risk_dashboard_summary(db: AsyncSession) -> dict:
         ],
         "devices": device_summaries,
     }
-

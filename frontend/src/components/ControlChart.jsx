@@ -272,18 +272,11 @@ export default function ControlChart({ data }) {
   useEffect(() => {
     getPredictionSettings()
       .then((result) => {
-        console.log(
-          'Prediction settings:',
-          result
-        );
-
         setSettings(result);
       })
-      .catch((err) => {
-        console.error(
-          'Failed to load prediction settings:',
-          err
-        );
+      .catch(() => {
+        // Chart simply stays hidden (see the !settings guard below) if
+        // settings can't be loaded — nothing actionable for the user here.
       });
   }, []);
 
@@ -302,11 +295,6 @@ export default function ControlChart({ data }) {
 
   // Safety check in case the backend sends an invalid value
   if (!Number.isFinite(WARNING_THRESHOLD)) {
-    console.error(
-      'Invalid edge_warning_threshold:',
-      settings.edge_warning_threshold
-    );
-
     return null;
   }
 

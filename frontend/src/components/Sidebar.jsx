@@ -2,6 +2,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import './Sidebar.css';
 import logoImg from '../assets/logo.png';
+import { isAdminUser } from '../api/auth';
 
 // ── SVG icons ────────────────────────────────────────────────
 const CalibrationIcon = () => (
@@ -19,11 +20,30 @@ const AddCalibrationIcon = () => (
   </svg>
 );
 
+const UsersNavIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  </svg>
+);
+
 const RiskIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
     <line x1="12" y1="9" x2="12" y2="13" />
     <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
+const TolerancesIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+    <line x1="6" y1="6" x2="6" y2="10"></line>
+    <line x1="10" y1="6" x2="10" y2="9"></line>
+    <line x1="14" y1="6" x2="14" y2="10"></line>
+    <line x1="18" y1="6" x2="18" y2="9"></line>
   </svg>
 );
 
@@ -48,7 +68,7 @@ const LogoutIcon = () => (
 export default function Sidebar({ onLogout }) {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('auth_user') || '{}');
-  const isAdmin = user.role === 'Admin' || user.name === 'Adam International Hospital Admin' || user.name === 'adam_admin';
+  const isAdmin = isAdminUser(user);
 
   function handleLogout() {
     localStorage.removeItem('auth_user');
@@ -93,6 +113,28 @@ export default function Sidebar({ onLogout }) {
 
         {isAdmin && (
           <NavLink
+            to="/app/users"
+            id="nav-users"
+            className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+          >
+            <UsersNavIcon />
+            <span>Users &amp; Audit Log</span>
+          </NavLink>
+        )}
+
+        {isAdmin && (
+          <NavLink
+            to="/app/tolerances"
+            id="nav-tolerances"
+            className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+          >
+            <TolerancesIcon />
+            <span>Tolerance Rules</span>
+          </NavLink>
+        )}
+
+        {isAdmin && (
+          <NavLink
             to="/app/settings"
             id="nav-settings"
             className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
@@ -119,5 +161,3 @@ export default function Sidebar({ onLogout }) {
     </aside>
   );
 }
-
-

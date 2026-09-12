@@ -6,12 +6,18 @@ import {
   createCalibrationRecord,
   getDepartments,
   getToleranceRules,
+  createToleranceRule,
   getDeviceTestLabels,
   getCalibrationHistory,
   getDeviceTypes,
 } from '../api/devices';
 
 import './AddCalibrationForm.css';
+
+// ─── Fallback tolerance applied when a test label has no configured
+// ToleranceRule. Kept in sync with the backend's bulk-upload fallback
+// (see routers/calibrations.py) so behavior matches everywhere.
+const DEFAULT_TOLERANCE_PERCENT = 10;
 
 // ─── Empty test row template ──────────────────────────────────────────────
 
@@ -23,6 +29,9 @@ const newTestRow = () => ({
   actual_value: '',
   min_value: '',
   max_value: '',
+  // true when min/max were computed from DEFAULT_TOLERANCE_PERCENT because
+  // no ToleranceRule matched this test_label, rather than a real rule.
+  usingDefaultTolerance: false,
 });
 
 // ─── Auto-compute pass/fail based on min and max ───────────────────────────
@@ -48,6 +57,7 @@ function TestRow({
   onRemove,
   canRemove,
   deviceTestLabels = [],
+  onAddToleranceRule,
 }) {
   const computedResult = autoResult(
     row.actual_value,
@@ -336,6 +346,23 @@ function TestRow({
           )}
         </div>
       </div>
+
+      {row.usingDefaultTolerance && row.test_label.trim() && (
+        <div className="tolerance-fallback-notice">
+          <AlertIcon />
+          <span>
+            No tolerance rule configured for <strong>"{row.test_label}"</strong> —
+            using the default ±{DEFAULT_TOLERANCE_PERCENT}% band.
+          </span>
+          <button
+            type="button"
+            className="btn-link"
+            onClick={() => onAddToleranceRule(row)}
+          >
+            Add tolerance rule
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -346,6 +373,18 @@ export default function AddCalibrationForm({ onViewDevice }) {
   // Departments
   const [departments, setDepartments] = useState([]);
   const [toleranceRules, setToleranceRules] = useState([]);
+
+  // "Add tolerance rule" inline modal, opened from a test row that has no
+  // matching ToleranceRule (see the fallback notice in TestRow above).
+  const [toleranceModalRow, setToleranceModalRow] = useState(null);
+  const [toleranceRuleForm, setToleranceRuleForm] = useState({
+    tolerance_type: 'percentage',
+    tolerance_value: String(DEFAULT_TOLERANCE_PERCENT),
+    unit: '',
+    notes: '',
+  });
+  const [toleranceRuleError, setToleranceRuleError] = useState('');
+  const [savingToleranceRule, setSavingToleranceRule] = useState(false);
 
   // Device lookup
   const [serialInput, setSerialInput] = useState('');
@@ -705,6 +744,8 @@ export default function AddCalibrationForm({ onViewDevice }) {
             );
 
             if (rule) {
+              updated.usingDefaultTolerance = false;
+
               // Fill unit from tolerance rule
               // only when no unit has already been detected.
               if (
@@ -757,6 +798,31 @@ export default function AddCalibrationForm({ onViewDevice }) {
                     max.toFixed(4)
                   ).toString();
               }
+            } else {
+              // No configured rule for this label — fall back to the
+              // default ±DEFAULT_TOLERANCE_PERCENT% band (same default the
+              // backend's bulk-upload endpoint uses) and flag the row so
+              // the UI can prompt to add a real rule for it.
+              updated.usingDefaultTolerance = Boolean(labelToMatch);
+
+              if (labelToMatch && !Number.isNaN(reference)) {
+                const min =
+                  reference *
+                  (1 - DEFAULT_TOLERANCE_PERCENT / 100);
+                const max =
+                  reference *
+                  (1 + DEFAULT_TOLERANCE_PERCENT / 100);
+
+                updated.min_value =
+                  parseFloat(
+                    min.toFixed(4)
+                  ).toString();
+
+                updated.max_value =
+                  parseFloat(
+                    max.toFixed(4)
+                  ).toString();
+              }
             }
           }
 
@@ -766,6 +832,102 @@ export default function AddCalibrationForm({ onViewDevice }) {
     },
     [toleranceRules, deviceTestUnits]
   );
+
+  // ── Add tolerance rule (inline, from a test row's fallback notice) ──
+
+  function openToleranceModal(row) {
+    setToleranceModalRow(row);
+    setToleranceRuleForm({
+      tolerance_type: 'percentage',
+      tolerance_value: String(DEFAULT_TOLERANCE_PERCENT),
+      unit: row.test_point_unit || '',
+      notes: '',
+    });
+    setToleranceRuleError('');
+  }
+
+  function closeToleranceModal() {
+    setToleranceModalRow(null);
+  }
+
+  async function handleSaveToleranceRule(e) {
+    e.preventDefault();
+    setToleranceRuleError('');
+
+    const label = (toleranceModalRow?.test_label || '').trim();
+    const value = parseFloat(toleranceRuleForm.tolerance_value);
+
+    if (!label) {
+      setToleranceRuleError('This test row has no label yet.');
+      return;
+    }
+    if (Number.isNaN(value) || value <= 0) {
+      setToleranceRuleError('Tolerance value must be a positive number.');
+      return;
+    }
+
+    setSavingToleranceRule(true);
+    try {
+      const created = await createToleranceRule({
+        test_label: label,
+        tolerance_type: toleranceRuleForm.tolerance_type,
+        tolerance_value: value,
+        unit: toleranceRuleForm.unit.trim() || null,
+        notes: toleranceRuleForm.notes.trim() || null,
+      });
+
+      setToleranceRules((prev) => [...prev, created]);
+
+      // Apply the new rule immediately to every test row sharing this
+      // label — there may be more than one — recomputing MIN/MAX from
+      // each row's own reference value and clearing the fallback flag.
+      const labelToMatch = label.toLowerCase();
+      setTests((prev) =>
+        prev.map((test) => {
+          if (
+            (test.test_label || '').trim().toLowerCase() !==
+            labelToMatch
+          ) {
+            return test;
+          }
+
+          const reference = parseFloat(test.reference_value);
+          const updated = {
+            ...test,
+            usingDefaultTolerance: false,
+            test_point_unit:
+              test.test_point_unit || created.unit || '',
+          };
+
+          if (!Number.isNaN(reference)) {
+            let min = 0;
+            let max = 0;
+
+            if (created.tolerance_type === 'percentage') {
+              min = reference * (1 - created.tolerance_value / 100);
+              max = reference * (1 + created.tolerance_value / 100);
+            } else {
+              min = reference - created.tolerance_value;
+              max = reference + created.tolerance_value;
+            }
+
+            updated.min_value = parseFloat(min.toFixed(4)).toString();
+            updated.max_value = parseFloat(max.toFixed(4)).toString();
+          }
+
+          return updated;
+        })
+      );
+
+      setToleranceModalRow(null);
+    } catch (err) {
+      setToleranceRuleError(
+        err.message || 'Failed to save tolerance rule.'
+      );
+    } finally {
+      setSavingToleranceRule(false);
+    }
+  }
 
   function addTestRow() {
     const label =
@@ -1592,6 +1754,9 @@ export default function AddCalibrationForm({ onViewDevice }) {
                 deviceTestLabels={
                   deviceTestLabels
                 }
+                onAddToleranceRule={
+                  openToleranceModal
+                }
               />
             ))}
           </div>
@@ -1657,6 +1822,126 @@ export default function AddCalibrationForm({ onViewDevice }) {
           </button>
         </div>
       </form>
+
+      {toleranceModalRow && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: 460 }}>
+            <div className="modal-header">
+              <h2>Add Tolerance Rule</h2>
+              <button
+                type="button"
+                className="btn-close-modal"
+                onClick={closeToleranceModal}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={handleSaveToleranceRule}>
+                <div className="form-group" style={{ marginBottom: 16 }}>
+                  <label>Test Label</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={toleranceModalRow.test_label}
+                    disabled
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div className="form-group" style={{ marginBottom: 16, flex: 1 }}>
+                    <label>Tolerance Type</label>
+                    <select
+                      className="form-select"
+                      value={toleranceRuleForm.tolerance_type}
+                      onChange={(e) =>
+                        setToleranceRuleForm({
+                          ...toleranceRuleForm,
+                          tolerance_type: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="percentage">Percentage (%)</option>
+                      <option value="absolute">Absolute (±value)</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 16, flex: 1 }}>
+                    <label>Tolerance Value</label>
+                    <input
+                      type="number"
+                      step="any"
+                      className="form-input"
+                      value={toleranceRuleForm.tolerance_value}
+                      onChange={(e) =>
+                        setToleranceRuleForm({
+                          ...toleranceRuleForm,
+                          tolerance_value: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 16 }}>
+                  <label>Unit (optional)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={toleranceRuleForm.unit}
+                    onChange={(e) =>
+                      setToleranceRuleForm({
+                        ...toleranceRuleForm,
+                        unit: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. mmHg, BPM"
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 24 }}>
+                  <label>Notes (optional)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={toleranceRuleForm.notes}
+                    onChange={(e) =>
+                      setToleranceRuleForm({
+                        ...toleranceRuleForm,
+                        notes: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                {toleranceRuleError && (
+                  <div style={{ color: '#dc2626', fontSize: '0.85rem', marginBottom: 16 }}>
+                    {toleranceRuleError}
+                  </div>
+                )}
+
+                <div className="modal-footer" style={{ marginTop: 0 }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={closeToleranceModal}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={savingToleranceRule}
+                  >
+                    {savingToleranceRule ? 'Saving…' : 'Create Rule'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

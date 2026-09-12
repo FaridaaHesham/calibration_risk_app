@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
+import { isAdminUser } from '../api/auth';
 import './UsersPage.css';
 
 const UsersIcon = () => (
@@ -32,7 +33,11 @@ export default function UsersPage() {
   const [error, setError] = useState(null);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'Biomedical Engineer', full_name: '' });
+  // Default must match one of the <option> values in the role <select>
+  // below ('USER' / 'ADMIN') — it previously defaulted to 'Biomedical
+  // Engineer', which matched neither option, so the dropdown effectively
+  // showed the browser's fallback selection instead of the real state.
+  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'USER', full_name: '' });
 
   useEffect(() => {
     fetchData();
@@ -120,7 +125,7 @@ export default function UsersPage() {
             </thead>
             <tbody>
               {users.map(u => {
-                const isAdmin = u.role?.toUpperCase().includes('ADMIN');
+                const isAdmin = isAdminUser(u);
                 return (
                   <tr key={u.id}>
                     <td>{u.full_name || '—'}</td>

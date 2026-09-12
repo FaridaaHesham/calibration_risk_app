@@ -1,9 +1,9 @@
 /* ============================================================
-   index.css — Global design system for Adam International Hospital
+   index.css â€” Global design system for Adam International Hospital
    Calibration & Risk Classification App
    ============================================================ */
 
-/* ── Design Tokens ────────────────────────────────────────── */
+/* â”€â”€ Design Tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root {
   /* Primary palette */
   --primary:        #1B4F72;   /* deep navy blue */
@@ -70,7 +70,7 @@
   --transition:     all 0.18s ease;
 }
 
-/* ── Reset & Base ─────────────────────────────────────────── */
+/* â”€â”€ Reset & Base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -97,7 +97,7 @@ body {
   display: flex;
 }
 
-/* ── Typography ───────────────────────────────────────────── */
+/* â”€â”€ Typography â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-sans);
   color: var(--text-primary);
@@ -114,7 +114,7 @@ p  { color: var(--text-secondary); }
 a  { color: var(--primary-light); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* ── Utility classes ──────────────────────────────────────── */
+/* â”€â”€ Utility classes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .sr-only {
   position: absolute; width: 1px; height: 1px;
   padding: 0; margin: -1px; overflow: hidden;
@@ -139,7 +139,7 @@ a:hover { text-decoration: underline; }
 .badge-info    { background: var(--info-light);    color: var(--info);         }
 .badge-muted   { background: #EDF2F7;              color: var(--text-muted);   }
 
-/* ── Card ─────────────────────────────────────────────────── */
+/* â”€â”€ Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .card {
   background: var(--bg-card);
   border-radius: var(--radius-md);
@@ -147,7 +147,7 @@ a:hover { text-decoration: underline; }
   box-shadow: var(--shadow-sm);
 }
 
-/* ── Form Controls ────────────────────────────────────────── */
+/* â”€â”€ Form Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .form-label {
   display: block;
   font-size: 0.8125rem;
@@ -185,7 +185,7 @@ a:hover { text-decoration: underline; }
   padding-right: 36px;
 }
 
-/* ── Buttons ──────────────────────────────────────────────── */
+/* â”€â”€ Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -238,7 +238,47 @@ a:hover { text-decoration: underline; }
   color: var(--primary);
 }
 
-/* ── Tables ───────────────────────────────────────────────── */
+/* Plain inline text-button used in table row actions and inline
+   notices (Users, Tolerance Rules, Add Calibration fallback notice, etc).
+   Defined globally here since it's used from several pages. */
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+/* Generic modal dialog box (paired with .modal-overlay / .modal-header /
+   .modal-body from pages/RiskPage.css). Used by UsersPage, TolerancesPage,
+   and AddCalibrationForm's inline "Add tolerance rule" dialog. */
+.modal-content {
+  background: #ffffff;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-page);
+}
+
+/* â”€â”€ Tables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -273,7 +313,7 @@ a:hover { text-decoration: underline; }
   background: #F7FAFC;
 }
 
-/* ── Loading Spinner ──────────────────────────────────────── */
+/* â”€â”€ Loading Spinner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .spinner-wrap {
   display: flex;
   align-items: center;
@@ -298,7 +338,7 @@ a:hover { text-decoration: underline; }
   to { transform: rotate(360deg); }
 }
 
-/* ── Empty State ──────────────────────────────────────────── */
+/* â”€â”€ Empty State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -326,7 +366,7 @@ a:hover { text-decoration: underline; }
   max-width: 280px;
 }
 
-/* ── Predicted Device Badge ───────────────────────────────── */
+/* â”€â”€ Predicted Device Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .badge-predicted {
   display: inline-flex;
   align-items: center;
@@ -340,4 +380,3 @@ a:hover { text-decoration: underline; }
   margin-left: 6px;
   white-space: nowrap;
 }
-

@@ -1,10 +1,10 @@
 // src/api/devices.js
 // All device, calibration, and prediction API calls.
-// Talks directly to the FastAPI backend — no mock data.
+// Talks directly to the FastAPI backend â€” no mock data.
 
 import apiClient from './client';
 
-// ─── Departments ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Departments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function getDepartments() {
   const res = await apiClient.get('/api/devices/departments');
@@ -16,7 +16,7 @@ export async function getDeviceTypes() {
   return res.data;
 }
 
-// ─── Devices ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Devices â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function getDevice(serialNumber, department = null) {
   try {
@@ -89,7 +89,7 @@ export async function createDevice(deviceData) {
   }
 }
 
-// ─── Calibrations ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Calibrations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function getCalibrationHistory(serialNumber) {
   const res = await apiClient.get(
@@ -193,7 +193,7 @@ export async function deleteCalibrationTest(testId) {
   }
 }
 
-// ─── Chart ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function getChartData(serialNumber) {
   try {
@@ -211,7 +211,7 @@ export async function getChartData(serialNumber) {
   }
 }
 
-// ─── Risk ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Risk â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function getRiskData(serialNumber) {
   try {
@@ -232,7 +232,7 @@ export async function getRiskData(serialNumber) {
   }
 }
 
-// ─── Calibration Predictions ──────────────────────────────────────────────
+// â”€â”€â”€ Calibration Predictions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function getDevicesByPrediction(
   intervalYears = null,
@@ -284,7 +284,7 @@ export async function getDevicePrediction(serialNumber) {
   }
 }
 
-// ─── Device Update ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Device Update â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function updateDevice(
   serialNumber,
@@ -317,7 +317,7 @@ export async function updateDevice(
   }
 }
 
-// ─── Device Delete ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Device Delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function deleteDevice(serialNumber) {
   try {
@@ -334,14 +334,58 @@ export async function deleteDevice(serialNumber) {
   }
 }
 
-// ─── Tolerance Rules ───────────────────────────────────────────────────────
+// â”€â”€â”€ Tolerance Rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function getToleranceRules() {
   const res = await apiClient.get('/api/tolerances');
   return res.data;
 }
 
-// ─── Device Test Labels ───────────────────────────────────────────────────
+export async function createToleranceRule(rule) {
+  try {
+    const res = await apiClient.post('/api/tolerances', {
+      test_label: rule.test_label,
+      tolerance_type: rule.tolerance_type,
+      tolerance_value: rule.tolerance_value,
+      unit: rule.unit || null,
+      notes: rule.notes || null,
+    });
+    return res.data;
+  } catch (err) {
+    const detail = err.response?.data?.detail;
+    throw new Error(detail || 'Failed to create tolerance rule.');
+  }
+}
+
+export async function updateToleranceRule(testLabel, rule) {
+  try {
+    const res = await apiClient.put(
+      `/api/tolerances/${encodeURIComponent(testLabel)}`,
+      {
+        test_label: rule.test_label,
+        tolerance_type: rule.tolerance_type,
+        tolerance_value: rule.tolerance_value,
+        unit: rule.unit || null,
+        notes: rule.notes || null,
+      }
+    );
+    return res.data;
+  } catch (err) {
+    const detail = err.response?.data?.detail;
+    throw new Error(detail || 'Failed to update tolerance rule.');
+  }
+}
+
+export async function deleteToleranceRule(testLabel) {
+  try {
+    await apiClient.delete(`/api/tolerances/${encodeURIComponent(testLabel)}`);
+  } catch (err) {
+    const detail = err.response?.data?.detail;
+    throw new Error(detail || 'Failed to delete tolerance rule.');
+  }
+}
+
+// â”€â”€â”€ Device Test Labels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function getDeviceTestLabels(serialNumber) {
   try {
@@ -359,7 +403,7 @@ export async function getDeviceTestLabels(serialNumber) {
   }
 }
 
-// ─── Prediction Settings ──────────────────────────────────────────────────
+// â”€â”€â”€ Prediction Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function getPredictionSettings() {
   const res = await apiClient.get(

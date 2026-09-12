@@ -22,9 +22,10 @@ from app.services.risk_service import (
     get_equipment_risk_config_for_type,
     calculate_excel_risk,
 )
+from app.routers.auth import get_current_user
 from datetime import date
 
-router = APIRouter(prefix="/api/risk", tags=["risk"])
+router = APIRouter(prefix="/api/risk", tags=["risk"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/dashboard", response_model=RiskDashboardResponse)
@@ -196,14 +197,21 @@ async def delete_risk_assessment(id: int, db: AsyncSession = Depends(get_db)):
 @router.get("/departments-compliance", response_model=DepartmentComplianceResponse)
 async def get_departments_compliance(db: AsyncSession = Depends(get_db)):
     """Return departmental calibration compliance rates and risk breakdowns."""
+    # get_risk_dashboard_summary() returns a plain dict (see risk_service.py),
+    # not a model instance — this previously used attribute access
+    # (dashboard.devices, device.department, ...) which raised AttributeError
+    # on every call. It also compared calibration_status against the wrong
+    # strings ("Calibrated"/"Overdue") — the real values produced are
+    # "NORMAL" / "DUE SOON" / "OVERDUE" (see get_risk_dashboard_summary()).
     dashboard = await get_risk_dashboard_summary(db)
-    
+    devices = dashboard["devices"]
+
     deps = {}
     total_calibrated = 0
-    total_hospital_devices = len(dashboard.devices)
-    
-    for device in dashboard.devices:
-        dep_name = device.department or "Unassigned"
+    total_hospital_devices = len(devices)
+
+    for device in devices:
+        dep_name = device["department"] or "Unassigned"
         if dep_name not in deps:
             deps[dep_name] = {
                 "total_devices": 0,
@@ -213,18 +221,21 @@ async def get_departments_compliance(db: AsyncSession = Depends(get_db)):
                 "medium_risk_count": 0,
                 "low_risk_count": 0
             }
-            
+
         deps[dep_name]["total_devices"] += 1
-        
-        if device.calibration_status == "Calibrated":
+
+        # A device counts as "calibrated" (i.e. in compliance) whenever it's
+        # not overdue — NORMAL and DUE SOON both still mean the last
+        # calibration is on file and the next one hasn't been missed yet.
+        if device["calibration_status"] == "OVERDUE":
+            deps[dep_name]["overdue_devices"] += 1
+        else:
             deps[dep_name]["calibrated_devices"] += 1
             total_calibrated += 1
-        elif device.calibration_status == "Overdue":
-            deps[dep_name]["overdue_devices"] += 1
-            
-        if device.risk_class == "CLASS_3":
+
+        if device["risk_class"] == "CLASS_3":
             deps[dep_name]["high_risk_count"] += 1
-        elif device.risk_class == "CLASS_2":
+        elif device["risk_class"] == "CLASS_2":
             deps[dep_name]["medium_risk_count"] += 1
         else:
             deps[dep_name]["low_risk_count"] += 1
@@ -251,4 +262,3 @@ async def get_departments_compliance(db: AsyncSession = Depends(get_db)):
         departments=dep_list,
         hospital_compliance_rate=round(hosp_comp_rate, 2)
     )
-

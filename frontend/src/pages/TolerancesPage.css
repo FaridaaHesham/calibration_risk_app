@@ -1,0 +1,74 @@
+/* src/pages/TolerancesPage.css */
+
+.tolerances-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tolerances-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.tolerances-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 6px 0;
+  color: #0f172a;
+}
+
+.tolerances-subtitle {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+  max-width: 620px;
+  line-height: 1.5;
+}
+
+.tolerances-content-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.tol-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.tol-type-badge.percentage {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.tol-type-badge.absolute {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.tol-notes {
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.field-hint {
+  margin: 6px 0 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}

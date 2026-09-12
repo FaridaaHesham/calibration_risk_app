@@ -24,6 +24,16 @@ async def lifespan(app: FastAPI):
             await conn.execute(text("ALTER TABLE equipment_risk_configs ADD COLUMN IF NOT EXISTS equipment_category VARCHAR DEFAULT 'medical'"))
             await conn.execute(text("ALTER TABLE equipment_risk_configs ADD COLUMN IF NOT EXISTS occurrence_value NUMERIC DEFAULT 0.0"))
             await conn.execute(text("ALTER TABLE equipment_risk_configs ADD COLUMN IF NOT EXISTS normalized_probability NUMERIC"))
+            # Auth now enforces admin-only endpoints by role (see
+            # app/routers/auth.py's require_admin). The originally-seeded
+            # bootstrap account (seed_users.py) predates that and was given
+            # the role "Biomedical Engineer", which would lock it out of
+            # user management and settings. Promote it once, idempotently,
+            # so existing deployments keep working after this change.
+            await conn.execute(text(
+                "UPDATE users SET role = 'Admin' "
+                "WHERE username = 'adam_admin' AND (role IS NULL OR role NOT ILIKE '%admin%')"
+            ))
     except Exception as e:
         print("[Startup Migration Note]:", e)
     yield
